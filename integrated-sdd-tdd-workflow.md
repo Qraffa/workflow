@@ -90,7 +90,17 @@
 
 并行度、可并行切片、写入边界、review 顺序由 Skill 根据 `plan.md` 和 `state.json` 判断。
 
-### 3.3 文档少，但层级清晰
+### 3.3 Soft 依赖优先，硬门禁后移
+
+核心命令在缺少上游产物时应优先给出补全路径，而不是直接失败：
+
+- 用户直接 `/flow:apply`：若没有 `plan.md`，先提出生成最小单 Slice；若没有 `spec.md`，提示该实现只能作为轻量 TDD，不可归档进主 Spec。
+- 用户直接 `/flow:spec`：若没有 `brief.md`，先从当前对话生成轻量 brief 草稿，并标记仍需确认。
+- 用户直接 `/flow:close`：只有最终一致性校验需要硬门禁；缺失关键产物时应列出缺口和推荐补齐命令。
+
+这样保留低启动成本，同时把真正影响交付可信度的约束集中到 `/flow:close`。
+
+### 3.4 文档少，但层级清晰
 
 一次 change 默认只有 3 份人读文档和 1 份机器状态：
 
@@ -110,7 +120,7 @@ flow/changes/<change>/
 
 不把内部私有函数、临时实现判断、逐行 coding 指令写进 Spec。
 
-### 3.4 Scenario 是桥接单位
+### 3.5 Scenario 是桥接单位
 
 Scenario 同时服务三件事：
 
@@ -126,7 +136,15 @@ auth.login.invalid-password
 billing.invoice.retry-timeout
 ```
 
-### 3.5 切片按行为纵切
+关键验收、集成、契约测试建议显式引用 Scenario ID，例如：
+
+```text
+@scenario auth.login.success
+```
+
+普通单元测试不强制绑定 Scenario ID，避免把内部实现细节伪装成业务契约。
+
+### 3.6 切片按行为纵切
 
 每个 Slice 必须是一个可独立验证的行为增量，而不是“先改数据库、再改 API、再改 UI”的水平层切分。
 
@@ -139,7 +157,12 @@ billing.invoice.retry-timeout
 - 有写入范围。
 - 能说明是否可并行。
 
-### 3.6 TDD 只在切片内执行
+每个 Slice 还应标注执行类型：
+
+- `AFK`：上下文清楚、验收明确、可由子 agent 独立完成。
+- `HITL`：需要人类判断、产品取舍、外部确认或高风险操作。
+
+### 3.7 TDD 只在切片内执行
 
 Spec 不列出所有单元测试。Plan 只定义测试策略和关键证据，不提前批量写满测试清单。
 
@@ -149,9 +172,11 @@ Spec 不列出所有单元测试。Plan 只定义测试策略和关键证据，�
 Red -> Green -> Refactor -> Review -> Evidence
 ```
 
-### 3.7 Escape 是一等能力
+### 3.8 Escape 是一等能力
 
 实现中如果发现 Scenario 错误、契约缺失、接口语义需要改变、范围明显溢出，必须触发 `/flow:escape`，而不是让测试或代码悄悄改写业务契约。
+
+Escape 除写入 `state.json` 外，L1 以后建议同步写入 append-only 的 `escapes.log`，用于审计和复盘。
 
 ## 4. 目录与产物
 
@@ -167,12 +192,18 @@ flow/
       spec.md
       plan.md
       state.json
+      escapes.log              # L1+ 可选，append-only
+      evidence/                # L1+ 可选，slice/review 证据快照
+        <slice-id>/
+          notes.md
     archive/
       YYYY-MM-DD-<change>/
         brief.md
         spec.md
         plan.md
         state.json
+        escapes.log
+        evidence/
 
 CONTEXT.md
 docs/adr/
@@ -186,6 +217,8 @@ docs/adr/
 | `spec.md` | Scenario、验收语义、外部契约 delta | `/flow:spec` | 必须 |
 | `plan.md` | 行为切片、测试策略、依赖、并行边界 | `/flow:plan` | 必须 |
 | `state.json` | 机器状态、slice claim、证据索引、escape 状态 | `/flow:plan` 后持续更新 | 必须 |
+| `escapes.log` | append-only 的 Escape 审计记录 | `/flow:escape` | L1+ 建议 |
+| `evidence/` | 子 agent 报告、review 结论、测试输出摘要 | `/flow:apply`、`/flow:review` | L1+ 建议 |
 | `flow/specs/*.md` | 系统当前外部行为的主 Spec | `/flow:close` 同步 | 建议 |
 | `CONTEXT.md` | 领域语言 | `/flow:clarify` 可更新 | 可选 |
 | `docs/adr/*.md` | 难逆转、非显然、有真实权衡的架构决策 | `/flow:clarify` 或 `/flow:review` 可建议 | 可选 |
@@ -253,9 +286,11 @@ The system SHALL ...
 
 ### SL1: <behavior increment>
 Status: pending
+Execution Mode: AFK
 Scenarios: <scenario-id>
 Dependencies: none
 Parallel Group: A
+Estimated TDD Cycles: 3
 Write Scope:
 - src/...
 - tests/...
@@ -292,12 +327,15 @@ Tasks:
     "SL1": {
       "status": "pending",
       "owner": null,
+      "execution_mode": "AFK",
+      "estimated_cycles": 3,
       "scenarios": ["auth.login.success"],
       "write_scope": ["src/auth/**", "tests/auth/**"],
       "evidence": []
     }
   },
   "escapes": [],
+  "escape_log": "escapes.log",
   "reviews": [],
   "updated_at": "YYYY-MM-DDTHH:mm:ssZ"
 }
@@ -327,6 +365,7 @@ Tasks:
 - 识别领域术语冲突，必要时更新 `CONTEXT.md`。
 - 识别是否适合完整流程、轻量流程或纯 TDD。
 - 对高风险或难逆转决策建议 ADR，但不默认创建。
+- 如果用户跳过澄清直接进入 `/flow:spec`，应从当前上下文生成轻量 brief，并标记需要用户确认的假设。
 
 **产物**
 
@@ -391,6 +430,8 @@ Tasks:
 
 - 按 Scenario 和风险拆分行为 Slice。
 - 为每个 Slice 定义依赖、写入范围、测试策略、完成证据。
+- 为每个 Slice 标注 `AFK` 或 `HITL`。
+- 为每个 Slice 粗估 TDD cycle 数；超过 10 个 cycle 应提示拆分。
 - 标记哪些 Slice 可以并行，哪些必须串行。
 - 给出每个 Slice 的 TDD 入口：先写哪个失败测试，验证什么行为。
 - 定义 Escape 策略和触发阈值。
@@ -422,6 +463,8 @@ Tasks:
 /flow:apply implement ready slices
 /flow:apply delegate independent slices
 /flow:apply finish blocked slice
+/flow:apply run AFK slices
+/flow:apply work HITL slice
 ```
 
 **输入**
@@ -446,9 +489,11 @@ Evidence: 记录测试和审查证据
 ```
 
 - 如果用户要求并行，Skill 根据写入范围和依赖判断是否可以委派多个 agent。
+- `AFK` Slice 可委派子 agent；`HITL` Slice 留在主会话执行，或先向用户确认关键决策后再降级为 `AFK`。
 - 子 agent 必须拿到明确上下文：Slice、Scenario、写入范围、测试策略、禁止越界项。
 - 子 agent 不应修改其他 Slice 的写入范围，不应自行改变外部契约。
-- 完成一个 Slice 后更新 `plan.md` checkbox 和 `state.json`。
+- 关键行为测试应引用对应 Scenario ID，例如 `@scenario auth.login.success`。
+- 完成一个 Slice 后更新 `plan.md` checkbox、`state.json`，L1+ 可写入 `evidence/<slice-id>/notes.md`。
 
 **产物**
 
@@ -493,11 +538,13 @@ Evidence: 记录测试和审查证据
 - 修改最小必要范围的 `brief.md`、`spec.md` 或 `plan.md`。
 - 更新测试策略。
 - 关闭 Escape 后恢复 `/flow:apply`。
+- L1+ 同步 append 到 `escapes.log`，不得删除历史 Escape 记录。
 
 **产物**
 
 - `spec.md` 或 `plan.md` 的局部更新。
 - `state.json` 中 escape 记录。
+- L1+ 的 `escapes.log` 审计记录。
 - 当前 Slice 的状态从 `blocked` 或 `escaped` 恢复到 `pending` / `red` / `green`。
 
 **关键取舍**
@@ -560,11 +607,25 @@ Escape 是正式回流通道，不是失败。它避免测试和代码悄悄成�
 - 测试结果、review 结果。
 - 主 Spec。
 
+**推荐调用场景**
+
+```text
+/flow:close
+/flow:close check only
+/flow:close strict
+/flow:close archive ready changes
+```
+
 **行为**
 
+- 执行结构化校验：
+  - 每个 Requirement 至少有一个 Scenario。
+  - Scenario 使用稳定 ID，并符合 Given / When / Then 语义。
+  - Delta 标记没有互相冲突。
 - 执行 Spec/Test/Code 一致性校验：
   - Spec 是否仍表达真实业务意图。
   - 主要 Scenario 是否有自动化测试或明确证据。
+  - 关键 Scenario 的测试是否引用 Scenario ID。
   - 外部接口、错误语义、数据模型、权限、安全、性能承诺是否一致。
   - 所有 Escape 是否闭环。
   - TDD 中发现的新业务语义是否回填 Spec。
@@ -572,6 +633,9 @@ Escape 是正式回流通道，不是失败。它避免测试和代码悄悄成�
 - 同步 `spec.md` delta 到 `flow/specs/*.md`。
 - 归档 change。
 - 输出完成证据和剩余风险。
+- `check only` 只生成校验报告，不同步和归档。
+- `strict` 将 Warning 也视为阻塞。
+- `archive ready changes` 可批量归档已完成且无 Critical 的多个 change。
 
 **产物**
 
@@ -579,6 +643,7 @@ Escape 是正式回流通道，不是失败。它避免测试和代码悄悄成�
 - `flow/changes/archive/YYYY-MM-DD-<change>/`。
 - close report。
 - `state.json` 状态为 `archived`。
+- 可选 `verify-report.md`。
 
 **关键取舍**
 
@@ -623,6 +688,19 @@ plan.md + state.json
         v
 flow/specs/*.md + archive
 ```
+
+### 7.1 文件生命周期
+
+| 文件 | 创建时机 | 修改主体 | 归档/保留策略 |
+|---|---|---|---|
+| `brief.md` | `/flow:clarify` | `/flow:clarify`、必要时 `/flow:escape` | 随 change 归档 |
+| `spec.md` | `/flow:spec` | `/flow:spec`、`/flow:escape` | delta 同步到主 Spec，原文件随 change 归档 |
+| `plan.md` | `/flow:plan` | `/flow:plan`、`/flow:apply`、`/flow:escape` | 随 change 归档 |
+| `state.json` | `/flow:plan` 或轻量 apply fallback | 所有 `/flow:*` 命令 | 随 change 归档，作为机器状态快照 |
+| `escapes.log` | 首次 `/flow:escape` | 仅 append | 随 change 归档，历史记录不得删除 |
+| `evidence/<slice-id>/notes.md` | `/flow:apply` 或 `/flow:review` | 子 agent / controller | 随 change 归档，可作为 review 和测试证据索引 |
+| `flow/specs/*.md` | `/flow:close` 首次同步 capability | `/flow:close` | 项目级长期演进 |
+| `CONTEXT.md` | 懒创建 | `/flow:clarify` | 项目级长期保留 |
 
 ## 8. 状态机
 
@@ -918,6 +996,7 @@ Issue tracker 是协作分发工具，不是核心事实来源。
 - `state.json` 可简化，仅记录 Slice 状态。
 - `/flow:*` 先作为 agent skills，不必实现 CLI。
 - PR 模板包含 close checklist。
+- 对一次性小改动允许轻量路径：`/flow:clarify` 后直接 `/flow:apply` 生成单 Slice，但不得直接归档进主 Spec；若要归档，必须补齐 `spec.md` 和 `plan.md`。
 
 ### L1：轻量治理
 
