@@ -10,20 +10,21 @@
 |---|---|
 | 核心理念 | SDD 定义契约 + TDD 驱动实现 + Subagent 并行执行 |
 | 命令总数 | **6 个**（`/clarify`、`/spec`、`/slice`、`/implement`、`/escape`、`/verify`） |
-| 主要产物 | **3 个文件 + 1 个目录** (`spec.md`、`slices.md`、`escapes.log`、`slices/`) |
-| 持久语义 | `CONTEXT.md`（领域语言，可选）+ `specs/<capability>/spec.md`（archive 后） |
-| 并行模型 | 切片级（subagent per slice），HITL/AFK 分类调度 |
-| Verify 单位 | Scenario（Given/When/Then）作为 Spec↔Test 桥接 |
-| 最小启动成本 | 无配置即可用 `/clarify` 与 `/implement`；其余命令在需要时引入 |
+| 主要产物 | **4 份人读文档 + 1 份机器状态** (`brief.md`、`spec.md`、`slices.md`、`escapes.log`、`state.json`) |
+| 持久语义 | `CONTEXT.md`（领域语言，可选）+ `specs/<capability>/spec.md`（archive 后合并目的地） |
+| 并行模型 | 切片级（subagent per slice），HITL/AFK 分类 + write_scope 静态隔离 |
+| Verify 单位 | Scenario（Given/When/Then）作为 Spec↔Test 桥接，ID 在 archive 后不可变 |
+| 最小启动成本 | L0 模式下 `/clarify` + `/implement` 即可启动，brief 与 state 在 L1+ 强制 |
 
 **比较参考（命令数与文件数）：**
 
-| 工作流 | 主路径命令数 | 单次 change 文件数 |
-|---|---|---|
-| OpenSpec | 11 | 4 (proposal + design + tasks + spec) |
-| matt-skills | 14（5 主线 + 9 辅助） | N 个 issue（无单 change 文件） |
-| superpowers | 14 | 2 (design + plan) |
-| **SliceSpec (本方案)** | **6** | **3 (spec + slices + escapes)** |
+| 工作流 | 主路径命令数 | 单次 change 人读文档 | 机器状态 |
+|---|---|---|---|
+| OpenSpec | 11 | 4 (proposal + design + tasks + spec) | 无（依赖文件存在性扫描） |
+| matt-skills | 14（5 主线 + 9 辅助） | N 个 issue（issue tracker 即状态） | 无 |
+| superpowers | 14 | 2 (design + plan) | TodoWrite（会话级） |
+| 替代方案（integrated-sdd-tdd） | 7 | 3 (brief + spec + plan) | state.json |
+| **SliceSpec (本方案)** | **6** | **4 (brief + spec + slices + escapes)** | state.json |
 
 ---
 
@@ -34,6 +35,9 @@
 3. **Soft 依赖默认**（继承自 matt-skills）：所有命令在缺失上游产物时给出"自动 fallback / 提示用户先跑哪步"的行为，而不是硬报错。仅 `/verify` 在严格模式下强制依赖完整。
 4. **Subagent 化并行**（继承自 superpowers）：主会话只做调度，切片实现交给 fresh subagent，避免 context 污染。HITL 切片显式回到主会话。
 5. **Escape Hatch 是一等公民**：任何阶段都可以触发 `/escape`，记录为 append-only 日志，verify 阶段必须确认闭环。
+6. **Skill 是场景化的，不接受 CLI 风格 flag**：用自然语言意图调用（如"继续下一个 slice"、"严格校验"），不用 `--strict`、`--bulk` 这类参数。Skill 内部依据 `state.json` 与意图判断行为模式。
+7. **并行隔离靠静态声明，不靠子 agent 自觉**：每个 slice 必须自报 `write_scope`（白名单）与 `do_not_touch`（黑名单）。controller 在子 agent 返回后必须 `git diff` 校验越界，越界即视为失败而非概念性 review issue。
+8. **Scenario ID 是稳定契约的一部分**：ID 在 archive 后不可变；新增 Scenario 走 `## ADDED`，废弃走 `## REMOVED` 并保留 reason，绝不复用已 archive 的 ID 命名。这是 Spec↔Test 长期可追溯的基础。
 
 ---
 
@@ -43,7 +47,10 @@
 
 **取代**：matt-skills 的 `/grill-me` + `/grill-with-docs` + superpowers 的 `brainstorming` + OpenSpec 的 `/opsx:explore`。
 
-**何时调用**：用户对"做什么/为什么做/边界在哪"还没说清；或者 spec 已经存在但用户想挑战它。
+**何时调用**：
+- 用户对"做什么/为什么做/边界在哪"还没说清。
+- spec 已经存在但用户想挑战它（重新澄清边界）。
+- `/escape` 治理阈值超限触发"退回澄清"建议时。
 
 **输入**：用户的自然语言描述、相关代码路径（可选）、issue 链接（可选）。
 
@@ -53,11 +60,43 @@
 3. 鼓励用户在每个分支决策上回答 "确认 / 修正 / 让 Claude 决定"。
 4. 当达到"可以写 spec 草稿"的阈值（用户显式同意 OR 5 个连续无修正），自动建议 `/spec`。
 
-**产物**：**无持久文件**。结论存在会话上下文中。如果对话非常长，可选地落 `changes/<change-id>/discovery.md`（瞬时草稿，archive 时丢弃）。
+**产物**：
+- `changes/<change-id>/brief.md`（L1+ 强制；L0 模式可省略）—— 含 Problem / Goal / Scope / Non-Goals / Domain Language / Constraints / Open Questions / Decision Log 8 个章节
+- `changes/<change-id>/state.json` 初始化（含 change_id、status=`draft`、updated_at）
+
+**brief.md 模板**：
+
+```markdown
+# Brief: <change-id>
+
+## Problem
+<1-3 句话，业务视角>
+
+## Goal
+<本次 change 要达成的可观察目标>
+
+## Scope
+<明确包含的能力/流程/接口>
+
+## Non-Goals
+<明确不做什么，防止隐性扩张>
+
+## Domain Language
+<本 change 涉及的关键术语；与 CONTEXT.md 冲突时此处为局部约定>
+
+## Constraints
+<性能阈值、合规要求、迁移约束、外部依赖>
+
+## Open Questions
+<未决议的歧义；进入 /spec 前应清零或显式标记为"实现期再定">
+
+## Decision Log
+<- YYYY-MM-DD: 决定 X，因为 Y，否决了 Z>
+```
 
 **与 final-workflow.md 的映射**：第 4 节 "Explore / Clarify"。
 
-**Soft 依赖**：完全不依赖任何产物，零配置可用。
+**Soft 依赖**：零配置可用。在 L0 模式下 brief.md 可省略，结论留在会话上下文中；进入 `/spec` 时若发现没有 brief.md，由 `/spec` 在生成 spec.md 时反向回填一个最小 brief.md（仅 Problem/Goal/Scope/Non-Goals 4 节）。
 
 ---
 
@@ -85,7 +124,11 @@
    - **WHEN** <trigger>
    - **THEN** <observable outcome>
    ```
-4. 为每个 Scenario 分配稳定 ID（`<capability>.<requirement-slug>.<seq>`），便于后续测试引用。
+4. 为每个 Scenario 分配稳定 ID（`<capability>.<requirement-slug>.<seq>`），便于后续测试引用。**ID 稳定性规则**：
+   - archive 后 ID 不可变；后续 change 即使重写该 Scenario 必须保留原 ID。
+   - 废弃 Scenario 走 `## REMOVED Requirements` 并标 `**Reason**` 与 `**Migration**`，**绝不复用其 ID 命名给新 Scenario**。
+   - 跨 capability 引用 Scenario ID 时使用 fully qualified 形式（`auth.login.001`），不允许局部短名。
+   - 测试中引用 ID 至少满足以下任一形式：注释 `// @scenario: auth.login.001`、测试名前缀 `test_scenario_auth_login_001_*`、或 test docstring 首行 `Scenario: auth.login.001`。`/verify` 三选一接受。
 5. spec.md 必含 4 个章节：**Why / Non-Goals / Requirements / Constraints**。**显式禁止**：实现细节、私有类、目录结构、库选择（除非这些本身是外部约束）。
 
 **产物**：`changes/<change-id>/spec.md`
@@ -115,6 +158,8 @@
    - **覆盖的 Scenario IDs**：必须显式列出
    - **type**：HITL（需人决策）/ AFK（可由 subagent 独立完成）
    - **blocked_by**：依赖关系
+   - **write_scope**：白名单 glob 列表（如 `src/auth/**`、`tests/auth/**`），子 agent 仅允许在该范围内创建/修改文件
+   - **do_not_touch**：黑名单 glob（默认包含 `specs/**`、`changes/**`、`.github/**`、`CONTEXT.md` 等共享资源；可追加）
    - **test_strategy**：用 final-workflow.md 第 7 节的分层（acceptance/integration/contract/unit）
    - **estimated_cycles**：预计 TDD 循环数（粗估，<10 提示拆分）
 3. 交互式让用户确认/调整。
@@ -138,11 +183,17 @@ s02 ─────────────────> s05
 - **type**: AFK
 - **covers**: auth.login.001, auth.login.002
 - **blocked_by**: none
+- **write_scope**:
+  - src/auth/**
+  - tests/auth/**
+- **do_not_touch**:
+  - specs/**
+  - src/billing/**
 - **test_strategy**:
   - acceptance: 用户成功登录路径
   - unit: 密码错误次数计数
 - **estimated_cycles**: 3
-- **status**: [ ] pending | [ ] in_progress | [ ] done | [ ] escaped
+- **status**: pending  <!-- 见 §3.2 切片状态机 -->
 
 ## Slice s02: ...
 ```
@@ -187,8 +238,14 @@ s02 ─────────────────> s05
    - 测试是否通过公共接口验证（非 mock 内部）？
    - 是否过度抽象 / 速决性代码？
    - 是否在 RED 时重构？（违反检测）
-7. 通过 → 在 slices.md 把 `[ ] pending` 改为 `[x] done`，commit。
-8. 如果还有 unblocked AFK slice → 继续派发下一个；否则提示 `/verify`。
+7. **Controller 边界校验**（不可省略，先于 reviewer 派发）：主会话执行 `git diff --name-only` 取子 agent 实际修改的文件列表，逐一比对 slice 的 `write_scope` 白名单与 `do_not_touch` 黑名单。
+   - 任一文件未匹配白名单 → 标记 slice 为 `blocked(scope-violation)`，不进入 reviewer，要求子 agent 撤回越界修改后重新 dispatch。
+   - 任一文件命中黑名单 → 同上。
+   - **这是结构性失败，不交给 reviewer 用自然语言判断。**子 agent 自我汇报的"我没改 X"不可信。
+8. 通过 reviewer → 更新两处状态：
+   - `slices.md` 的 status 推进到 `done`。
+   - `state.json` 的对应 slice 节点写入 `evidence`（包含 commit SHA 列表、测试命令与结果、reviewer 结论），并写入 `updated_at` 时间戳。
+9. 如果还有 unblocked AFK slice → 继续派发下一个；否则提示 `/verify`。
 
 #### 模式 B：HITL 切片（主会话执行）
 
@@ -212,7 +269,7 @@ s02 ─────────────────> s05
 
 **关键设计取舍**：
 - TDD 不作为单独命令，**而是 `/implement` 的强制内嵌行为**。理由：tdd 是实现纪律，不是阶段；让它单独存在容易被跳过。superpowers 的做法（plan 模板硬绑定 RED-GREEN-REFACTOR）证明这是有效的。
-- 默认双 reviewer（spec → quality）：增加约 2x 成本但显著提升一次通过率（参考 superpowers RELEASE-NOTES 的实测数据）。**单人项目可通过 `--review minimal` 关闭 quality reviewer**。
+- 默认双 reviewer（spec → quality）：增加约 2x 成本但显著提升一次通过率（参考 superpowers RELEASE-NOTES 的实测数据）。用户可用自然语言降级（"这个 change 跳过 quality review" / "只做 spec compliance"），skill 据此调整；不暴露 flag。
 - 不强制并行：用户/项目复杂度低时，串行 AFK 也是合法路径。并行是性能优化，不是正确性要求。
 
 ---
@@ -300,10 +357,16 @@ s02 ─────────────────> s05
 - 主 `specs/` 仓库的更新
 - archive 后的 change 目录
 
-**模式参数**：
-- `/verify --dry-run`：仅校验，不归档（用于 PR 前自检）
-- `/verify --strict`：所有警告也阻塞
-- `/verify --bulk`：批量 archive 多个完成的 change（继承 OpenSpec 的 bulk-archive）
+**场景化调用**（自然语言，非 CLI flag）：
+- "PR 前自检一下" → 仅运行 V1-V8 与测试套件，不执行 sync/archive。
+- "严格校验" → 把所有 Warning 视为阻塞。
+- "归档所有完成的 change" → 扫描 `changes/` 下 status=`verifying` 的所有 change，批量执行 sync+archive。
+- "归档当前 change" → 默认行为。
+
+**机器可读输出（CI 集成接口）**：
+- 退出码：`0` 通过，`1` 有 Critical，`2` 有 Warning 且严格模式开启，`3` 结构性错误（spec 解析失败等）。
+- 报告路径：`changes/<change-id>/verify-report.json`（结构化）+ `changes/<change-id>/verify-report.md`（人读）。
+- CI 可直接 `<flow:verify cmd> && cat changes/*/verify-report.json | jq ...`。
 
 **与 final-workflow.md 的映射**：第 12 节（直接实现 V1-V8）。
 
@@ -315,47 +378,129 @@ s02 ─────────────────> s05
 
 ## 3. 状态机与产物流
 
-### 3.1 整体状态流
+### 3.1 Change 状态机（5 个状态，记录在 state.json）
 
 ```
-[空白]
-   │ /clarify
-   ▼
-[discovery 上下文]
-   │ /spec
-   ▼
-[spec.md 存在]──────┐
-   │ /slice         │ /escape（任何阶段触发）
-   ▼                ▼
-[slices.md 存在]    [escapes.log + spec.md 修订]
-   │ /implement     │
-   ▼                │
-[slices/* 进行中]──┘
-   │ 所有 slice done/escaped
-   ▼
-[ready-to-verify]
-   │ /verify
-   ▼
-[archived in changes/archive/]
+draft ──> specified ──> implementing ──> verifying ──> archived
+                            │
+                            └─ escape 是子状态，不构成独立 change 状态
 ```
 
-### 3.2 单切片状态
+| 状态 | 含义 | 进入条件 | 主要命令 |
+|---|---|---|---|
+| `draft` | 已有 brief.md，目标范围未完全稳定 | `/clarify` 完成首轮 | `/clarify` 迭代 |
+| `specified` | spec.md 存在且 Scenario 有稳定 ID | `/spec` 完成 | `/slice` |
+| `implementing` | slices.md 存在且至少一个 slice in_progress | `/slice` 完成或首次 `/implement` | `/implement` / `/escape` |
+| `verifying` | 所有 slice 状态为 done 或 escaped(closed) | `/implement` 完成最后一个 slice | `/verify` |
+| `archived` | sync + archive 完成 | `/verify` 通过 | (不可逆) |
+
+### 3.2 Slice 状态机（细化到 TDD 节拍）
 
 ```
-pending ──> in_progress ──┬──> done ────────> [verified]
+pending ──> in_progress ──┬──> done
+                          │     ▲
+                          │     │ (reviewer 通过 + controller diff 校验通过)
+                          │     │
+                          │     ├── reviewing      ← review 阶段
+                          │     ├── refactor       ← 全绿下重构
+                          │     ├── green          ← 最小实现通过测试
+                          │     └── red            ← 失败测试就位
                           │
-                          └──> escaped ────> [spec 更新后可重启或归档]
+                          ├──> blocked (上下文缺失 / scope-violation / 依赖未就绪)
+                          │
+                          └──> escaped (open) ──> escaped (closed) ──> pending
 ```
 
-### 3.3 文件生命周期
+| 状态 | 含义 | 持有方 |
+|---|---|---|
+| `pending` | 未开始 | — |
+| `in_progress.red` | 失败测试已落地并验证按预期失败 | subagent |
+| `in_progress.green` | 最小实现通过该测试 | subagent |
+| `in_progress.refactor` | 全绿下重构 | subagent |
+| `in_progress.reviewing` | 双 reviewer 派发中 | controller |
+| `done` | reviewer 通过 + diff 校验通过 + evidence 落 state.json | — |
+| `blocked` | 子原因：`needs-context` / `scope-violation` / `dep-missing` / `too-complex` | controller |
+| `escaped(open)` | 已触发 `/escape`，等待 spec/slices 修订 | — |
+| `escaped(closed)` | spec/slices 已修订，slice 可重启或被新 slice 替代 | — |
+
+**为什么细分 in_progress 而不平铺**：所有 `in_progress.*` 在调度视角下是同一类（"该 slice 占用一个 subagent"），细分仅用于 controller 在 subagent 报告中提取进度。在 state.json 中用 `state.json.slices[sid].phase` 字段记录细分；slices.md 的人读 checkbox 只显示 `pending/in_progress/done/blocked/escaped` 五大类。
+
+### 3.3 state.json 结构
+
+`state.json` 是机器状态文件，不是人读入口（人读看 brief/spec/slices）。schema：
+
+```json
+{
+  "change_id": "add-auth-login",
+  "status": "implementing",
+  "created_at": "2026-05-19T10:00:00Z",
+  "updated_at": "2026-05-19T15:30:00Z",
+  "current_slice": "add-auth-login-s02",
+  "slices": {
+    "add-auth-login-s01": {
+      "status": "done",
+      "phase": null,
+      "owner": null,
+      "scenarios": ["auth.login.001"],
+      "write_scope": ["src/auth/**", "tests/auth/**"],
+      "do_not_touch": ["specs/**"],
+      "evidence": {
+        "commits": ["a1b2c3d", "e4f5g6h"],
+        "tests_run": [
+          {"cmd": "pytest tests/auth/test_login.py -v", "result": "pass", "ts": "..."}
+        ],
+        "spec_review": "approved",
+        "quality_review": "approved",
+        "controller_diff_check": "passed"
+      }
+    },
+    "add-auth-login-s02": {
+      "status": "in_progress",
+      "phase": "red",
+      "owner": "subagent:implementer-7f3a",
+      "scenarios": ["auth.login.002"],
+      "write_scope": ["src/auth/**"],
+      "evidence": {}
+    }
+  },
+  "escapes": [
+    {
+      "id": "e01",
+      "ts": "...",
+      "slice": "add-auth-login-s01",
+      "tag": "scenario-missing",
+      "description": "...",
+      "resolved": true,
+      "resolved_at": "..."
+    }
+  ],
+  "reviews": [
+    {
+      "object": "slice:add-auth-login-s01",
+      "verdict": "approved",
+      "severity_breakdown": {"critical": 0, "warning": 1, "info": 2},
+      "warnings_accepted_with_risk": ["magic-number-100 in auth/login.py:42"]
+    }
+  ]
+}
+```
+
+**关键设计**：
+- 人手不应直接编辑 state.json；所有更新由 `/clarify`、`/spec`、`/slice`、`/implement`、`/escape`、`/verify` 各自维护对应字段。
+- `evidence.controller_diff_check` 字段记录 §2.4 第 7 步的边界校验结果，是并行隔离的审计证据。
+- `reviews[].warnings_accepted_with_risk` 字段实现"显式接受风险"机制（吸收自 integrated-sdd-tdd 的 `accepted_with_risk` review 状态），仅 Warning 级可接受，Critical 必须修复。
+
+### 3.4 文件生命周期
 
 | 文件 | 创建时机 | 修改主体 | archive 时 |
 |---|---|---|---|
+| `changes/<id>/brief.md` | `/clarify`（L0 可选，L1+ 强制） | `/clarify`、`/escape` 触发的局部回填 | 归档 |
 | `changes/<id>/spec.md` | `/spec` | `/spec`、`/escape` | 合并到 `specs/<capability>/spec.md`，归档原文件 |
 | `changes/<id>/slices.md` | `/slice` | `/slice`、`/implement`、`/escape` | 归档 |
 | `changes/<id>/escapes.log` | 首次 `/escape` | append-only | 归档（永不删除，作审计证据）|
+| `changes/<id>/state.json` | `/clarify` 或 `/spec` 首次落盘 | 所有命令各维护对应字段；append-only 的子节点不删 | 归档 |
 | `changes/<id>/slices/<sid>/notes.md` | `/implement` 每切片 | subagent 写入 | 归档 |
-| `changes/<id>/discovery.md` | 可选 `/clarify` | 仅 `/clarify` | 丢弃（瞬时草稿）|
+| `changes/<id>/verify-report.{md,json}` | `/verify` | 仅 `/verify` 写入，每次覆盖 | 归档 |
 | `CONTEXT.md` | 任意时刻（懒创建） | `/clarify`、`/spec` | 不归档（项目级常驻）|
 | `specs/<capability>/spec.md` | `/verify` 首次为 capability 归档 | `/verify` | 持续演进 |
 
@@ -390,6 +535,12 @@ pending ──> in_progress ──┬──> done ────────> [ver
 | Plan as memory (单次读取) | superpowers | implementer subagent 从主会话接收 slice 全文 |
 | Anti-rationalization | superpowers + final-workflow.md | 内嵌于 `/implement` 与 `/verify` 的 prompt |
 | Bite-sized 任务粒度 | superpowers | slice → TDD cycle (2-5 min/cycle) |
+| `brief.md` 持久澄清结论 | integrated-sdd-tdd 替代方案 | `/clarify` 落 8 节模板，L1+ 强制 |
+| `state.json` 机器状态文件 | integrated-sdd-tdd 替代方案 | §3.3 schema，承载并行 owner / evidence / escapes 索引 |
+| `write_scope` + `do_not_touch` 静态隔离 | integrated-sdd-tdd 替代方案 | slices.md 必填字段；`/implement` controller 强制 diff 校验 |
+| `accepted_with_risk` review 结论 | integrated-sdd-tdd 替代方案 | state.json `reviews[].warnings_accepted_with_risk`，仅 Warning 适用 |
+| 变更类型路由表 | integrated-sdd-tdd 替代方案 + final-workflow.md 第 11 节 | §5 新增（取代旧 L0/L1/L2/L3 单一梯度） |
+| 否定 CLI flag 风格 | integrated-sdd-tdd 替代方案 | 全文删除 `--strict`/`--bulk`/`--dry-run`/`--review minimal`，改场景化自然语言 |
 
 ### 4.3 主动取舍掉的特性
 
@@ -406,6 +557,9 @@ pending ──> in_progress ──┬──> done ────────> [ver
 | `finishing-a-development-branch` 独立步骤 | superpowers | 合并入 `/verify`（archive + PR 创建） |
 | `using-git-worktrees` 显式命令 | superpowers | `/implement` 并行模式自动创建 worktree，不暴露给用户 |
 | 完整代码块嵌入 `tasks.md` | superpowers | subagent 自己写代码不必预先嵌入，slices.md 保持高层 |
+| 独立的 `/review` 命令 | integrated-sdd-tdd 替代方案 | review 是 `/implement`（双 reviewer）与 `/verify`（V1-V8）的内嵌行为，不单独成命令；独立 `/review` 会与内嵌 review 职责重叠并使命令数膨胀到 7 个 |
+| 8 状态的 change 状态机 | integrated-sdd-tdd 替代方案 | 5 状态足以覆盖调度（draft/specified/implementing/verifying/archived），`escaping` 是 slice 级子状态，`clarifying` 与 `draft` 工程上等价 |
+| 4 状态的 escape 状态机 | integrated-sdd-tdd 替代方案 | 二元 open/closed 足够；spec/plan/test-strategy 修订都是 closed 前的动作，不构成独立状态 |
 
 ### 4.4 净增量（三个原工作流都没有）
 
@@ -415,38 +569,66 @@ pending ──> in_progress ──┬──> done ────────> [ver
 | 治理阈值 (escape>3 警告 / >slices/2 阻塞) | 量化"何时退回 clarify" |
 | Scenario ID 与测试引用强校验 | OpenSpec 鼓励但未强制；matt-skills 完全没有；superpowers 完全没有 |
 | 测试策略字段进入 slices.md | final-workflow.md 第 7 节系统化测试分层 |
+| Controller `git diff` 边界校验作为结构性失败 | 三个原工作流都用 reviewer 自然语言判断越界，但子 agent 越界是结构性 bug 不是 review issue |
+| Scenario ID 三种测试引用形式约定 | OpenSpec 提了 ID 但未规范引用，matt-skills/superpowers 完全没有 |
+| `/verify` CI 退出码契约 + 报告路径约定 | 三个原工作流均未规范化 CI 集成接口 |
+| 变更类型路由表 | final-workflow.md 第 11 节有，但三个原工作流都没有落到命令选择层 |
 
 ---
 
-## 5. 上手路径（渐进治理）
+## 5. 上手路径与变更类型路由
 
-### L0：零配置即可用（首次试点）
+### 5.1 治理强度梯度（L0 → L3）
+
+#### L0：零配置即可用（首次试点）
 
 仅使用 `/clarify` + `/implement`。
-- 无需 `CONTEXT.md`、无需 `specs/` 目录。
-- `/implement` 在缺 slices.md 时自动生成单切片占位，跑通后由用户事后补 spec。
+- 无需 `CONTEXT.md`、`brief.md`、`specs/` 目录。
+- `/clarify` 结论留在会话上下文，不落 brief.md（L0 例外）。
+- `/implement` 在缺 slices.md 时自动生成单切片占位（write_scope 取项目根），跑通后由用户事后补 spec。
 - 目标：让团队习惯 TDD + subagent 派发，而不是先学治理。
 
-### L1：引入契约（团队稳定后）
+#### L1：引入契约（团队稳定后）
 
-加入 `/spec` 与 `/slice`。
+加入 `/spec` 与 `/slice`，**强制 brief.md 与 state.json**。
 - 开始维护 `specs/` 主仓库。
 - 关键 Scenario 引入稳定 ID，测试中引用。
-- `/verify --dry-run` 用作 PR 前自检（非阻塞）。
+- `/verify` "PR 前自检"模式用作合并前 sanity check（非阻塞）。
 
-### L2：完整工作流
+#### L2：完整工作流
 
-启用 `/escape` 与 `/verify --strict`。
-- CI 集成 `/verify` 作为合并门禁。
-- 监控 escape 频率与漂移事件。
+启用 `/escape` 与"严格校验"模式。
+- CI 集成 `/verify`：退出码 ≥ 1 阻塞合并。
+- 监控 escape 频率与漂移事件（来自 state.json `escapes[]`）。
 - 引入 contract test 与跨服务校验。
 
-### L3：高治理 / 合规场景
+#### L3：高治理 / 合规场景
 
 参考 final-workflow.md 第 13 节：
 - Spec/Test 自动追溯图（基于 Scenario ID）
 - LLM 辅助语义检查（`/verify` 增加 V8 增强模式）
 - 副作用与外部调用审计
+
+### 5.2 变更类型路由表
+
+不同变更类型走不同子路径（继承自 final-workflow.md 第 11 节，吸收自 integrated-sdd-tdd 替代方案第 12 节）。命令缺省时默认跳过。
+
+| 变更类型 | 推荐路径 | 关键说明 |
+|---|---|---|
+| 新功能 / 重要业务行为 | `clarify → spec → slice → implement → verify` | 完整流程 |
+| 外部 API / 数据契约变化 | `clarify → spec → slice → implement → verify`，**强制 contract test** | spec.md 中必含 External Contracts 章节 |
+| Bug 修复（改变外部行为）| `clarify(轻量) → spec(补缺失 Scenario) → slice → implement → verify` | spec 必补 |
+| Bug 修复（仅符合现有 Spec）| `implement → verify` | 直接 TDD 修复，不需要 spec 变更 |
+| 内部重构（不改外部行为）| `implement(仅 refactor) → verify` | 不需要 spec.md；slices.md 可省略 |
+| 性能优化（有外部承诺）| `clarify → spec(写入承诺) → slice → implement → verify` | 包含 benchmark 作为 evidence |
+| 性能优化（仅内部）| `implement → verify(benchmark)` | 无需 spec |
+| P0 热修复 | `implement(直接修+测试) → verify(轻量) → 补 brief/spec` | 先止血，事后限期补齐文档；state.json 标 `post-hoc-spec-pending` |
+| 原型 / POC / 一次性脚本 | `implement` 单步 | 不进 archive 流程，不进入 `specs/` 主仓库 |
+
+**路由判定**：
+- 由 `/clarify` 在首轮对话中识别变更类型，写入 brief.md 的 Decision Log。
+- 后续命令读 brief.md 判断是否需要跳过自己（如 brief 标 `type: internal-refactor` 时，`/spec` 自动跳过）。
+- 用户可在任意命令调用时显式覆盖（"这次直接 implement"）。
 
 ---
 
@@ -463,17 +645,22 @@ pending ──> in_progress ──┬──> done ────────> [ver
 │       └── spec.md
 └── changes/                   # 进行中的 change
     ├── <change-id>/
-    │   ├── spec.md
-    │   ├── slices.md
-    │   ├── escapes.log
-    │   ├── discovery.md       # 瞬时，可选
+    │   ├── brief.md           # L1+ 强制；L0 可选
+    │   ├── spec.md            # /spec 产物
+    │   ├── slices.md          # /slice 产物
+    │   ├── escapes.log        # /escape append-only
+    │   ├── state.json         # 机器状态（参见 §3.3）
+    │   ├── verify-report.json # /verify 产物（机器可读）
+    │   ├── verify-report.md   # /verify 产物（人读）
     │   └── slices/
     │       └── <slice-id>/
-    │           └── notes.md
+    │           └── notes.md   # subagent 报告
     └── archive/
         └── YYYY-MM-DD-<change-id>/
-            └── (整个 change 目录归档)
+            └── (整个 change 目录归档，包括 state.json 与 escapes.log)
 ```
+
+**为什么 `specs/` 在项目根而不在 `flow/specs/`**：避免占用顶层命名空间。`specs/` 是项目主资产（与 `src/`、`tests/` 同级），`changes/` 是临时工作目录可加入 `.gitignore` 子模式或保留在主分支。把工作流命名为 `flow/` 反而把流程绑死在工具层。
 
 ### 6.2 实现技术栈（参考）
 
@@ -518,6 +705,9 @@ pending ──> in_progress ──┬──> done ────────> [ver
 | Scenario ID 命名漂移 | `/verify` 检查 ID 唯一性与稳定性（archive 后 ID 不可变）|
 | `/escape` 滥用导致 spec 反复修订 | 治理阈值（>3 警告，>slices/2 阻塞）；escape.log 作为 retrospective 证据 |
 | spec.md 与 CONTEXT.md 术语不一致 | `/clarify` 与 `/spec` 默认读 CONTEXT.md；冲突时在对话中显式提示用户裁决 |
+| state.json 与 slices.md/escapes.log 漂移 | 所有命令在退出前调用同一 state-writer 工具（先写 markdown，再用 markdown 解析回填 state.json 关键字段），不让命令各自手写 JSON |
+| Scenario ID 误复用已 archive 的 ID | `/verify` 在 sync 阶段把已归档 ID 列入 reserved 集合；`/spec` 生成 ID 时查询并禁止冲突 |
+| 子 agent 绕过 write_scope 写入仓库根（如 `.gitignore`） | `do_not_touch` 默认列入项目根文件 + 共享目录；controller 在 dispatch 前把 do_not_touch 注入子 agent prompt，作为硬约束而非建议 |
 
 ### 7.4 退出信号（继承 final-workflow.md 第 16 节）
 
