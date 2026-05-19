@@ -142,7 +142,16 @@ billing.invoice.retry-timeout
 @scenario auth.login.success
 ```
 
+也允许不同语言生态采用等价引用形式，例如测试名包含 `scenario_auth_login_success`，或测试 docstring / 注释首行声明 `Scenario: auth.login.success`。关键是机器和人都能从测试证据追溯回 Scenario。
+
 普通单元测试不强制绑定 Scenario ID，避免把内部实现细节伪装成业务契约。
+
+Scenario ID 一旦进入归档或主 Spec，就视为稳定外部语义标识：
+
+- 不因为文案微调改 ID。
+- 删除 Scenario 必须记录原因或迁移关系。
+- 已删除或归档过的 ID 不复用。
+- Scenario 语义发生破坏性变化时，应新增 ID 或显式标记迁移。
 
 ### 3.6 切片按行为纵切
 
@@ -162,6 +171,13 @@ billing.invoice.retry-timeout
 - `AFK`：上下文清楚、验收明确、可由子 agent 独立完成。
 - `HITL`：需要人类判断、产品取舍、外部确认或高风险操作。
 
+每个 Slice 还必须声明两个边界：
+
+- `Write Scope`：允许修改的文件、目录或能力范围。
+- `Do Not Touch`：本 Slice 明确禁止修改的共享文件、公共契约或高风险区域。
+
+写入边界不是注释，它决定是否可并行、是否可委派，以及完成后是否能通过结构校验。
+
 ### 3.7 TDD 只在切片内执行
 
 Spec 不列出所有单元测试。Plan 只定义测试策略和关键证据，不提前批量写满测试清单。
@@ -178,6 +194,14 @@ Red -> Green -> Refactor -> Review -> Evidence
 
 Escape 除写入 `state.json` 外，L1 以后建议同步写入 append-only 的 `escapes.log`，用于审计和复盘。
 
+### 3.9 状态是派生事实，不是第二份手写文档
+
+`brief.md`、`spec.md`、`plan.md` 是人类事实来源；`state.json` 是机器索引和调度状态。实现时应优先更新 Markdown 事实，再由 Skill 的状态写入逻辑同步 `state.json`，避免两套事实长期漂移。
+
+### 3.10 Verify 产物应可被 CI 消费
+
+`/flow:close` 既面向人，也面向自动化。最终校验除了人读报告，还应能输出结构化结果，让 CI、PR bot 或批量归档流程判断 Critical、Warning 和结构错误。
+
 ## 4. 目录与产物
 
 ### 4.1 推荐目录
@@ -193,6 +217,8 @@ flow/
       plan.md
       state.json
       escapes.log              # L1+ 可选，append-only
+      verify-report.md         # close/check only 输出
+      verify-report.json       # L2+ 可选，CI/批量归档使用
       evidence/                # L1+ 可选，slice/review 证据快照
         <slice-id>/
           notes.md
@@ -203,11 +229,22 @@ flow/
         plan.md
         state.json
         escapes.log
+        verify-report.md
+        verify-report.json
         evidence/
 
 CONTEXT.md
 docs/adr/
 ```
+
+目录名前缀不是核心机制。若团队希望把 Spec 作为项目级资产暴露在根目录，也可以采用：
+
+```text
+specs/
+changes/
+```
+
+本方案使用 `flow/specs`、`flow/changes` 只是为了避免与既有仓库结构冲突；真正需要保持稳定的是 change folder 内的产物职责和主 Spec 的长期演进语义。
 
 ### 4.2 产物职责
 
@@ -219,6 +256,8 @@ docs/adr/
 | `state.json` | 机器状态、slice claim、证据索引、escape 状态 | `/flow:plan` 后持续更新 | 必须 |
 | `escapes.log` | append-only 的 Escape 审计记录 | `/flow:escape` | L1+ 建议 |
 | `evidence/` | 子 agent 报告、review 结论、测试输出摘要 | `/flow:apply`、`/flow:review` | L1+ 建议 |
+| `verify-report.md` | 人读 close/check only 报告 | `/flow:close` | 建议 |
+| `verify-report.json` | 机器可读校验结果和退出语义 | `/flow:close` | L2+ 建议 |
 | `flow/specs/*.md` | 系统当前外部行为的主 Spec | `/flow:close` 同步 | 建议 |
 | `CONTEXT.md` | 领域语言 | `/flow:clarify` 可更新 | 可选 |
 | `docs/adr/*.md` | 难逆转、非显然、有真实权衡的架构决策 | `/flow:clarify` 或 `/flow:review` 可建议 | 可选 |
@@ -295,6 +334,10 @@ Write Scope:
 - src/...
 - tests/...
 
+Do Not Touch:
+- src/shared/...
+- migrations/...
+
 Test Strategy:
 - Acceptance:
 - Integration:
@@ -320,23 +363,34 @@ Tasks:
 
 ```json
 {
-  "change": "add-auth-login",
-  "status": "planning",
+  "change_id": "add-auth-login",
+  "status": "ready",
+  "post_hoc_spec_pending": false,
   "current_slice": null,
   "slices": {
     "SL1": {
       "status": "pending",
+      "phase": null,
       "owner": null,
       "execution_mode": "AFK",
       "estimated_cycles": 3,
       "scenarios": ["auth.login.success"],
       "write_scope": ["src/auth/**", "tests/auth/**"],
-      "evidence": []
+      "do_not_touch": ["src/shared/**", "migrations/**"],
+      "evidence": {
+        "commits": [],
+        "tests_run": [],
+        "spec_review": null,
+        "quality_review": null,
+        "controller_diff_check": null
+      }
     }
   },
   "escapes": [],
   "escape_log": "escapes.log",
   "reviews": [],
+  "warnings_accepted_with_risk": [],
+  "verify_reports": [],
   "updated_at": "YYYY-MM-DDTHH:mm:ssZ"
 }
 ```
@@ -430,6 +484,7 @@ Tasks:
 
 - 按 Scenario 和风险拆分行为 Slice。
 - 为每个 Slice 定义依赖、写入范围、测试策略、完成证据。
+- 为每个 Slice 定义 `Do Not Touch` 边界，覆盖共享类型、公共契约、迁移、全局配置等高冲突区域。
 - 为每个 Slice 标注 `AFK` 或 `HITL`。
 - 为每个 Slice 粗估 TDD cycle 数；超过 10 个 cycle 应提示拆分。
 - 标记哪些 Slice 可以并行，哪些必须串行。
@@ -493,13 +548,15 @@ Evidence: 记录测试和审查证据
 - 子 agent 必须拿到明确上下文：Slice、Scenario、写入范围、测试策略、禁止越界项。
 - 子 agent 不应修改其他 Slice 的写入范围，不应自行改变外部契约。
 - 关键行为测试应引用对应 Scenario ID，例如 `@scenario auth.login.success`。
-- 完成一个 Slice 后更新 `plan.md` checkbox、`state.json`，L1+ 可写入 `evidence/<slice-id>/notes.md`。
+- 完成一个 Slice 后，controller 必须检查实际 diff 是否落在 `Write Scope` 内、是否触碰 `Do Not Touch`。
+- 写入边界违规是结构失败，应先阻塞或触发 Escape，不能只交给 code review 兜底。
+- 更新 `plan.md` checkbox、`state.json` 中的 Slice `phase` / evidence，L1+ 可写入 `evidence/<slice-id>/notes.md`。
 
 **产物**
 
 - 代码和测试变更。
 - `plan.md` 中 Slice / Task checkbox 更新。
-- `state.json` 中 Slice 状态、owner、evidence 更新。
+- `state.json` 中 Slice 状态、phase、owner、evidence 更新。
 - 必要时生成 Escape 记录。
 
 **关键取舍**
@@ -579,7 +636,8 @@ Escape 是正式回流通道，不是失败。它避免测试和代码悄悄成�
 | `change` | Spec/Test/Code 是否语义一致 |
 
 - 输出 Critical、Warning、Suggestion。
-- Critical 必须处理或显式接受风险后才能 close。
+- Critical 必须处理后才能 close。
+- Warning 可以由用户或责任人显式 `accepted_with_risk`，并写入 `state.json` 的 `warnings_accepted_with_risk`。
 
 **产物**
 
@@ -621,6 +679,7 @@ Escape 是正式回流通道，不是失败。它避免测试和代码悄悄成�
 - 执行结构化校验：
   - 每个 Requirement 至少有一个 Scenario。
   - Scenario 使用稳定 ID，并符合 Given / When / Then 语义。
+  - 归档过或删除过的 Scenario ID 未被错误复用。
   - Delta 标记没有互相冲突。
 - 执行 Spec/Test/Code 一致性校验：
   - Spec 是否仍表达真实业务意图。
@@ -636,14 +695,24 @@ Escape 是正式回流通道，不是失败。它避免测试和代码悄悄成�
 - `check only` 只生成校验报告，不同步和归档。
 - `strict` 将 Warning 也视为阻塞。
 - `archive ready changes` 可批量归档已完成且无 Critical 的多个 change。
+- L2+ 输出机器可读 `verify-report.json`，供 CI 或批量归档使用。
+
+建议退出语义：
+
+| Code | 含义 |
+|---|---|
+| `0` | 通过 |
+| `1` | 存在 Critical |
+| `2` | strict 模式下存在 Warning |
+| `3` | 结构错误，例如产物缺失、状态损坏、写入边界违规 |
 
 **产物**
 
 - 更新后的 `flow/specs/*.md`。
 - `flow/changes/archive/YYYY-MM-DD-<change>/`。
-- close report。
+- `verify-report.md`。
+- 可选 `verify-report.json`。
 - `state.json` 状态为 `archived`。
-- 可选 `verify-report.md`。
 
 **关键取舍**
 
@@ -686,7 +755,7 @@ plan.md + state.json
 /flow:close
         |
         v
-flow/specs/*.md + archive
+flow/specs/*.md + archive + verify-report
 ```
 
 ### 7.1 文件生命周期
@@ -699,6 +768,8 @@ flow/specs/*.md + archive
 | `state.json` | `/flow:plan` 或轻量 apply fallback | 所有 `/flow:*` 命令 | 随 change 归档，作为机器状态快照 |
 | `escapes.log` | 首次 `/flow:escape` | 仅 append | 随 change 归档，历史记录不得删除 |
 | `evidence/<slice-id>/notes.md` | `/flow:apply` 或 `/flow:review` | 子 agent / controller | 随 change 归档，可作为 review 和测试证据索引 |
+| `verify-report.md` | `/flow:close` | `/flow:close` | 随 change 归档，人读最终校验记录 |
+| `verify-report.json` | `/flow:close` | `/flow:close` | L2+ 随 change 归档，CI/批量归档读取 |
 | `flow/specs/*.md` | `/flow:close` 首次同步 capability | `/flow:close` | 项目级长期演进 |
 | `CONTEXT.md` | 懒创建 | `/flow:clarify` | 项目级长期保留 |
 
@@ -788,6 +859,8 @@ blocked -> escaped -> pending
 | `blocked` | 缺上下文、依赖、环境或实现障碍 |
 | `escaped` | 已触发 Escape，等待 Spec/Plan 修正 |
 
+实现上可以把 `red`、`green`、`refactor`、`reviewing` 存为 `phase` 字段，把 Slice `status` 保持为 `in_progress`。文档层保留完整状态名，是为了让人工阅读时能看清 TDD 阶段。
+
 ### 8.3 Escape 状态机
 
 ```text
@@ -811,7 +884,7 @@ requested -> approved
 requested -> accepted_with_risk
 ```
 
-`accepted_with_risk` 只能用于 Warning 或 Suggestion。Critical 必须修复，或由用户显式确认风险。
+`accepted_with_risk` 只能用于 Warning 或 Suggestion。Critical 必须修复；若用户认为 Critical 可接受，应先降级问题定义并记录理由，而不是直接 close。
 
 ## 9. 并行实现模型
 
@@ -848,12 +921,13 @@ Escalation rules:
 controller 必须执行：
 
 - 检查每个子 agent 实际修改范围。
+- 对比 `git diff --name-only` 与 Slice 的 `Write Scope` / `Do Not Touch`。
 - 跑相关测试。
 - 跑跨 Slice 集成测试。
 - 处理冲突或重复实现。
 - 更新 `state.json`。
 
-不能只相信子 agent 的成功报告。
+不能只相信子 agent 的成功报告。若出现写入范围违规，应记录为 `controller_diff_check` 失败，并阻止 Slice 进入 `done`。
 
 ## 10. 验证与证据
 
@@ -864,6 +938,7 @@ controller 必须执行：
 - 失败测试曾经失败的证据，或说明为何无法 Red-first。
 - 通过的相关测试命令。
 - 对应 Scenario ID。
+- controller 的写入边界检查结果。
 - 代码 review 结果。
 - 未验证项和原因。
 
@@ -881,6 +956,8 @@ controller 必须执行：
 | V6 | 关键测试通过 |
 | V7 | review 的 Critical 已处理 |
 | V8 | 主 Spec 已同步或明确跳过并记录风险 |
+| V9 | Slice 实际 diff 未越过写入边界 |
+| V10 | 归档 Scenario ID 未被复用或破坏性改写 |
 
 ## 11. 风险边界
 
@@ -962,17 +1039,45 @@ controller 必须执行：
 - 超过一半 Slice 触发 Escape，应回到 `/flow:clarify`。
 - 同类 Escape 反复出现，说明团队领域语言、Scenario 粒度或切片方式有系统问题。
 
+### 11.8 状态漂移风险
+
+治理规则：
+
+- 不把 `state.json` 当作人工编辑主文档。
+- Markdown 事实先更新，再由 Skill 同步状态。
+- close 前检查 `plan.md` checkbox、`state.json` Slice 状态、evidence 是否一致。
+- 状态损坏或缺失时，优先从 `brief/spec/plan` 和实际 diff 重建，而不是猜测通过。
+
+### 11.9 Scenario ID 污染风险
+
+治理规则：
+
+- 归档过的 Scenario ID 进入保留集合。
+- 删除 Scenario 时保留迁移或删除原因。
+- 发现测试引用悬空 Scenario 时，优先判断是 Spec 漏同步、测试过期，还是外部行为已废弃。
+- 不为了追踪方便把内部实现测试伪装成 Scenario 测试。
+
+### 11.10 写入边界绕过风险
+
+治理规则：
+
+- `Write Scope` 和 `Do Not Touch` 必须在 `/flow:plan` 明确。
+- 并行 Slice 默认禁止共享公共类型、迁移、全局配置和同一外部契约。
+- controller diff check 是结构校验，不是可选审查意见。
+- 如确需越界，必须先 `/flow:escape` 更新 `plan.md`，再继续实现。
+
 ## 12. 变更类型处理策略
 
 | 变更类型 | 推荐流程 |
 |---|---|
 | 新功能 | `clarify -> spec -> plan -> apply -> close` |
-| 外部契约变化 | 完整流程，并优先添加 contract / integration tests |
-| Bug 修复且改变外部行为 | `clarify` 可轻量，必须补 `spec` 和 TDD |
+| 外部契约变化 | 完整流程，并强制 contract / integration tests |
+| 数据模型或事件语义变化 | 完整流程，优先定义外部兼容性和迁移证据 |
+| Bug 修复且改变外部行为 | `clarify` 可轻量，必须补 `spec` 中缺失 Scenario，再 TDD |
 | Bug 修复且只是不符合现有 Spec | 可从 `plan/apply` 开始，直接 TDD 修复 |
 | 内部重构 | 通常不需要 `spec`，只执行 refactor with tests |
-| 性能优化 | 若有外部性能承诺，写入 `spec`；否则轻量 plan + benchmark |
-| 热修复 | 先补必要测试和代码，事后补 `brief/spec/plan` 的最小记录 |
+| 性能优化 | 若有外部性能承诺，写入 `spec` 并要求 benchmark evidence；否则轻量 plan + benchmark |
+| 热修复 | 先补必要测试和代码，`state.json` 标记 `post_hoc_spec_pending`，事后补 `brief/spec/plan` 最小记录 |
 | 原型探索 | 可只用 `/flow:clarify`，不要归档进主 Spec |
 
 ## 13. 与 issue tracker 的关系
@@ -1002,6 +1107,7 @@ Issue tracker 是协作分发工具，不是核心事实来源。
 
 - Scenario ID 稳定。
 - 关键测试可引用 Scenario ID。
+- Slice 声明 `Write Scope` 和 `Do Not Touch`。
 - `state.json` 记录 Escape、Review、Evidence。
 - close 前检查未关闭 Escape 和未完成 Slice。
 
@@ -1009,13 +1115,16 @@ Issue tracker 是协作分发工具，不是核心事实来源。
 
 - 自动解析 `plan.md` Slice 和 write scope。
 - 自动判断并行冲突。
+- 自动执行 controller diff check。
 - CI 检查 Scenario 引用悬空。
 - 外部契约变化要求测试证据。
+- `/flow:close` 输出 `verify-report.json` 和退出语义。
 
 ### L3：高治理场景
 
 - Spec/Test trace graph。
 - Scenario hash 或版本检查。
+- 归档 Scenario ID 保留集合和迁移索引。
 - Escape 频率统计。
 - LLM 辅助语义一致性检查。
 
