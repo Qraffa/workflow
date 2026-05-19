@@ -37,7 +37,8 @@
 5. **Escape Hatch 是一等公民**：任何阶段都可以触发 `/escape`，记录为 append-only 日志，verify 阶段必须确认闭环。
 6. **Skill 是场景化的，不接受 CLI 风格 flag**：用自然语言意图调用（如"继续下一个 slice"、"严格校验"），不用 `--strict`、`--bulk` 这类参数。Skill 内部依据 `state.json` 与意图判断行为模式。
 7. **并行隔离靠静态声明，不靠子 agent 自觉**：每个 slice 必须自报 `write_scope`（白名单）与 `do_not_touch`（黑名单）。controller 在子 agent 返回后必须 `git diff` 校验越界，越界即视为失败而非概念性 review issue。
-8. **Scenario ID 是稳定契约的一部分**：ID 在 archive 后不可变；新增 Scenario 走 `## ADDED`，废弃走 `## REMOVED` 并保留 reason，绝不复用已 archive 的 ID 命名。这是 Spec↔Test 长期可追溯的基础。
+8. **Scenario ID 是稳定契约的一部分**：ID 在 archive 后不可变；新增 Scenario 走 `## ADDED`，废弃走 `## REMOVED` 并保留 reason，绝不复用已 archive 的 ID 命名。**Scenario 语义发生破坏性变化时，应分配新 ID（在 `## MODIFIED Requirements` 中显式标 `Supersedes: <old-id>`），不允许通过原 ID 改写语义**。这是 Spec↔Test 长期可追溯的基础。
+9. **状态是派生事实，不是第二份手写文档**：`brief.md` / `spec.md` / `slices.md` / `escapes.log` 是人类事实来源；`state.json` 是机器索引和调度状态。所有命令应先更新对应 markdown，再由 skill 内置的 state-writer 把关键字段同步到 `state.json`。**禁止直接编辑 state.json**。当 state.json 与 markdown 出现不一致时，markdown 是事实来源；state.json 应从 markdown + 实际 git diff 重建，而不是反向修改 markdown 去匹配 state.json。
 
 ---
 
@@ -161,7 +162,7 @@
    - **write_scope**：白名单 glob 列表（如 `src/auth/**`、`tests/auth/**`），子 agent 仅允许在该范围内创建/修改文件
    - **do_not_touch**：黑名单 glob（默认包含 `specs/**`、`changes/**`、`.github/**`、`CONTEXT.md` 等共享资源；可追加）
    - **test_strategy**：用 final-workflow.md 第 7 节的分层（acceptance/integration/contract/unit）
-   - **estimated_cycles**：预计 TDD 循环数（粗估，<10 提示拆分）
+   - **estimated_cycles**：预计 TDD 循环数（粗估）。**≥10 时 `/slice` 必须显式提示用户拆分**（呈现拆分草案，等用户确认 split 或 keep）；这是切片粒度的强约束，不是建议。
 3. 交互式让用户确认/调整。
 4. 生成 `changes/<change-id>/slices.md`。
 
@@ -239,9 +240,10 @@ s02 ─────────────────> s05
    - 是否过度抽象 / 速决性代码？
    - 是否在 RED 时重构？（违反检测）
 7. **Controller 边界校验**（不可省略，先于 reviewer 派发）：主会话执行 `git diff --name-only` 取子 agent 实际修改的文件列表，逐一比对 slice 的 `write_scope` 白名单与 `do_not_touch` 黑名单。
-   - 任一文件未匹配白名单 → 标记 slice 为 `blocked(scope-violation)`，不进入 reviewer，要求子 agent 撤回越界修改后重新 dispatch。
+   - 任一文件未匹配白名单 → 标记 slice 为 `blocked(scope-violation)`，不进入 reviewer。
    - 任一文件命中黑名单 → 同上。
    - **这是结构性失败，不交给 reviewer 用自然语言判断。**子 agent 自我汇报的"我没改 X"不可信。
+   - **如确实需要越界**（实现中发现 write_scope 划得不够）：必须先触发 `/escape` 显式调整 slices.md 的 write_scope 声明，再重新 dispatch；**禁止"边写边扩 scope"的隐式行为**。这条规则在 §7.3 的"写入边界绕过"治理中再次约束。
 8. 通过 reviewer → 更新两处状态：
    - `slices.md` 的 status 推进到 `done`。
    - `state.json` 的对应 slice 节点写入 `evidence`（包含 commit SHA 列表、测试命令与结果、reviewer 结论），并写入 `updated_at` 时间戳。
@@ -364,15 +366,18 @@ HITL 切片在以下条件全部满足时，可在执行中段降级为 AFK 后�
    - spec.md 中每个 Requirement 至少有一个 Scenario。
    - 每个 Scenario 是 4 个 `#`（不是 3 个），用 `**GIVEN**/**WHEN**/**THEN**` 格式。
    - delta 标记（ADDED/MODIFIED/REMOVED/RENAMED）无跨节冲突。
-2. **语义一致性校验**（来自 final-workflow.md 第 12 节 V1-V8）：
+2. **语义一致性校验**（V1-V8 来自 final-workflow.md 第 12 节，V9-V10 吸收自 v3 替代方案 §10.2）：
    - V1：spec.md 是否仍表达真实业务意图（用 LLM 重新扫描，flag 模糊语言）
-   - V2：每个 active Scenario 是否有对应测试引用其 ID（grep `@scenario:` 或注释）
+   - V2：每个 active Scenario 是否有对应测试引用其 ID（grep `@scenario:` / 测试名 / docstring 三选一）
    - V3：外部接口、错误语义、数据模型、权限、安全、性能承诺与 spec.md 一致
    - V4：是否有 acceptance/integration/contract test 覆盖主要验收路径
    - V5：unit test 是否覆盖关键规则、边界
    - V6：`escapes.log` 中所有 `resolution_pending: yes` 均已闭环
    - V7：TDD 中发现的新业务语义已回填 spec.md（检查 git history vs spec diff）
    - V8：spec.md 未夹带内部实现细节
+   - **V9：每个 slice 的实际 git diff 未越过 `write_scope`、未触及 `do_not_touch`**（读 state.json `evidence.controller_diff_check`，应均为 `passed`；若有 `failed` 但事后已通过 `/escape` 调整 write_scope 修复，可接受）
+   - **V10：归档过的 Scenario ID 未被复用**（扫描 `specs/` 主仓库 + 本 change 的 `## REMOVED` 历史，构造 reserved 集合；本 change `## ADDED` 中的 ID 与 reserved 集合不可相交）
+   - V 附：若 `state.json.post_hoc_spec_pending` 为 `true`，严格模式下视为 Critical（必须补 spec 后才能 archive）；默认模式下视为 Warning。
 3. **Escape 治理检查**（来自 final-workflow.md 第 10 节阈值）：
    - escapes 数 > 3：警告
    - escapes 数 > slices/2：阻塞
@@ -473,6 +478,7 @@ pending ──> in_progress ──┬──> done
 {
   "change_id": "add-auth-login",
   "status": "implementing",
+  "post_hoc_spec_pending": false,
   "created_at": "2026-05-19T10:00:00Z",
   "updated_at": "2026-05-19T15:30:00Z",
   "current_slice": "add-auth-login-s02",
@@ -539,6 +545,12 @@ pending ──> in_progress ──┬──> done
 
 state.json 的 `evidence.implementer_report` 字段值应是 `"evidence/s01/implementer-report.md"`（路径），而非内容本身。这样 state.json 保持紧凑、可程序化处理；详细叙述放在独立文件，git diff 友好。
 
+**关键字段说明**：
+- `post_hoc_spec_pending`（吸收自 v3）：用于"P0 热修复"路径。当 `/implement` 直接修复而未先经过 `/spec` 时，置为 `true`；`/verify` 会在严格模式下阻塞 archive 直到补齐 spec.md 并把字段置回 `false`。这是热修复后挂账的机器可读 marker，避免"先止血、事后忘补"。
+- `controller_diff_check`：每个 slice 的 evidence 必含此字段，值为 `passed` / `failed:<file-list>`。
+- `warnings_accepted_with_risk`：仅记录 Warning 级显式接受的项；Critical 不可走此路径。
+- 当 state.json 损坏或缺失时，重建顺序：从 `brief.md` / `spec.md` / `slices.md` / `escapes.log` 解析事实 → 用 `git log` 与当前 diff 补 evidence → 重新生成 state.json。绝不靠"猜测通过"。
+
 ### 3.4 文件生命周期
 
 | 文件 | 创建时机 | 修改主体 | archive 时 |
@@ -595,6 +607,12 @@ state.json 的 `evidence.implementer_report` 字段值应是 `"evidence/s01/impl
 | L0 路径归档不污染主 spec | integrated-sdd-tdd v2 提出（未规则化） | SliceSpec 补"`-l0` 后缀 + 跳过 spec sync"规则 |
 | Strict 模式严重度语义 | integrated-sdd-tdd v2 提"strict"措辞（未定义）| SliceSpec 补"Warning 阻塞、Suggestion 仍提示"对照表 |
 | 并行判定 5 步算法 + 物理 worktree 隔离 | integrated-sdd-tdd v2 仍 hand-wave | SliceSpec 把判定主体、5 步短路检查、共享资源黑名单写死 |
+| "状态是派生事实"升格为设计原则 #9 | integrated-sdd-tdd v3 §3.9 | markdown 是事实来源，state.json 派生；损坏时从 markdown + git diff 重建 |
+| state.json `post_hoc_spec_pending` 字段 | integrated-sdd-tdd v3 §5.4 | 热修复挂账的机器可读 marker，`/verify` 严格模式视为 Critical |
+| `/verify` V9（diff 越界）+ V10（ID 复用）+ V 附（post-hoc-spec）| integrated-sdd-tdd v3 §10.2 | SliceSpec V1-V8 扩到 V1-V10 + V 附 |
+| 破坏性 Scenario 变化分配新 ID + Supersedes 标记 | integrated-sdd-tdd v3 §3.5 | 防止"原 ID 改写语义"导致测试静默漂移 |
+| ≥10 estimated_cycles 强制 split 确认 | integrated-sdd-tdd v3 §6.3 | SliceSpec 从"提示"升级为"强约束"|
+| 边界绕过须先 /escape 调整 write_scope | integrated-sdd-tdd v3 §11.10 | `/implement` 第 7 步 + 风险表第 N 行双重写明 |
 
 ### 4.3 主动取舍掉的特性
 
@@ -611,9 +629,11 @@ state.json 的 `evidence.implementer_report` 字段值应是 `"evidence/s01/impl
 | `finishing-a-development-branch` 独立步骤 | superpowers | 合并入 `/verify`（archive + PR 创建） |
 | `using-git-worktrees` 显式命令 | superpowers | `/implement` 并行模式自动创建 worktree，不暴露给用户 |
 | 完整代码块嵌入 `tasks.md` | superpowers | subagent 自己写代码不必预先嵌入，slices.md 保持高层 |
-| 独立的 `/review` 命令 | integrated-sdd-tdd 替代方案 | review 是 `/implement`（双 reviewer）与 `/verify`（V1-V8）的内嵌行为，不单独成命令；独立 `/review` 会与内嵌 review 职责重叠并使命令数膨胀到 7 个 |
+| 独立的 `/review` 命令 | integrated-sdd-tdd 替代方案 | review 是 `/implement`（双 reviewer）与 `/verify`（V1-V10）的内嵌行为，不单独成命令；独立 `/review` 会与内嵌 review 职责重叠并使命令数膨胀到 7 个 |
 | 8 状态的 change 状态机 | integrated-sdd-tdd 替代方案 | 5 状态足以覆盖调度（draft/specified/implementing/verifying/archived），`escaping` 是 slice 级子状态，`clarifying` 与 `draft` 工程上等价 |
 | 4 状态的 escape 状态机 | integrated-sdd-tdd 替代方案 | 二元 open/closed 足够；spec/plan/test-strategy 修订都是 closed 前的动作，不构成独立状态 |
+| 独立 `claimed` slice 状态 | integrated-sdd-tdd 替代方案 v3 自己也注释"实现上存为 phase" | 文档与实现保持一致：status 5 大类（pending/in_progress/done/blocked/escaped）+ phase 细分（red/green/refactor/reviewing）；`claimed` 在 dispatch 完成的瞬间已经转为 `in_progress.red` |
+| `flow/` 目录前缀 | integrated-sdd-tdd 替代方案 v3 自己也说"不是核心机制" | SliceSpec 直接用项目根 `specs/` / `changes/`，避免占用顶层命名空间 |
 
 ### 4.4 净增量（三个原工作流都没有）
 
@@ -770,6 +790,9 @@ state.json 的 `evidence.implementer_report` 字段值应是 `"evidence/s01/impl
 | state.json 与 slices.md/escapes.log 漂移 | 所有命令在退出前调用同一 state-writer 工具（先写 markdown，再用 markdown 解析回填 state.json 关键字段），不让命令各自手写 JSON |
 | Scenario ID 误复用已 archive 的 ID | `/verify` 在 sync 阶段把已归档 ID 列入 reserved 集合；`/spec` 生成 ID 时查询并禁止冲突 |
 | 子 agent 绕过 write_scope 写入仓库根（如 `.gitignore`） | `do_not_touch` 默认列入项目根文件 + 共享目录；controller 在 dispatch 前把 do_not_touch 注入子 agent prompt，作为硬约束而非建议 |
+| state.json 损坏 / 与 markdown 不一致 | markdown 是事实来源；重建顺序：解析 brief/spec/slices/escapes.log + 跑 `git log` 与当前 diff → 重新生成 state.json。绝不靠"猜测通过"或反向修改 markdown 去匹配 state.json。 |
+| 实现中发现 write_scope 太窄但子 agent 自行扩界 | 边界绕过须先 `/escape` 显式调整 slices.md，再重新 dispatch；禁止"边写边扩 scope"。`/verify` V9 通过对比 state.json `evidence.controller_diff_check` 历史校验是否经过 escape 路径。 |
+| Scenario 语义破坏性变化时复用原 ID | 破坏性变化必须分配新 ID，在 `## MODIFIED Requirements` 中显式标 `Supersedes: <old-id>`；`/verify` V10 阻塞已 archive ID 的语义改写。 |
 
 ### 7.4 退出信号（继承 final-workflow.md 第 16 节）
 
