@@ -252,16 +252,46 @@ s02 ─────────────────> s05
 1. 主会话直接执行 TDD 循环，每个 cycle 与用户对齐。
 2. 一旦 HITL 切片完成，回到模式 A 继续后续 AFK 切片。
 
+#### HITL → AFK 降级
+
+HITL 切片在以下条件全部满足时，可在执行中段降级为 AFK 后续派发给 subagent：
+
+1. 用户已对该切片的关键决策点（架构选择、UX 权衡、外部依赖确认等）给出明确答复，且答复内容能在 prompt 中复述。
+2. 切片剩余工作均为 mechanical 实现（具体测试编写、代码改动），不再有需要人裁决的分支。
+3. `write_scope` 仍然满足并行隔离条件。
+
+**判定权**在 controller（主会话），不在 subagent。降级时必须：
+- 在 `state.json.slices[sid]` 新增 `originally_hitl: true` 字段（审计用）。
+- 在 dispatch 给 subagent 的 prompt 中显式列出"用户已确认的决策"清单，作为不可变前置条件。
+- 降级后子 agent 若发现新的 HITL 决策点，必须以 `BLOCKED(needs-hitl-decision)` 退出而非自行决定。
+
+反向不允许：AFK 切片在实现中发现需要人裁决时，走 `/escape` 通道而非降级为 HITL。
+
 #### 并行性
 
-- **同时分派多个 AFK 切片**：仅当切片之间无依赖且不修改重叠文件时。判定：读 slice 的 `blocked_by` + 检查 spec.md 中 Scenario 是否提示文件域（如同一个 capability 文件域内的切片串行）。
-- 每个并行切片走独立 worktree（继承 superpowers 的 `using-git-worktrees`），最后由 `/verify` 阶段合并。
+**判定主体**：始终是 controller（主会话），不交给 subagent 自决。
+
+**判定算法**（按顺序短路，任一不通过即降级为串行）：
+
+1. **依赖检查**：候选切片集合 `S` 中两两之间 `blocked_by` 无路径冲突 → 通过。
+2. **write_scope 集合不相交**：对 `S` 中每两个切片 `(a, b)`，`write_scope(a) ∩ write_scope(b) = ∅`（glob 展开后比对）→ 通过。仅文件级，目录级冲突也算冲突。
+3. **do_not_touch 黑名单不相交**：`do_not_touch(a) ∩ write_scope(b) = ∅`，反之亦然 → 通过。
+4. **共享高冲突资源检测**：扫描 `S` 中各切片 write_scope 是否触及以下默认高冲突路径，触及即不可并行：
+   - 数据库 migration 目录（`**/migrations/**`、`db/migrate/**`）
+   - 全局配置（`**/config/**`、`*.toml`、`*.yaml` 在根）
+   - 公共类型/schema 文件（`**/types/**`、`**/*.proto`、`**/*.graphql`）
+   - 用户可在 `state.json.parallel_guards` 追加项目特定路径。
+5. **测试隔离物理保证**：每个并行切片必须分配独立 git worktree（继承 superpowers 的 `using-git-worktrees`），并在 worktree 内运行各自测试。**这是物理隔离，不依赖"测试不互相污染"的人为承诺**。共享 DB/外部服务的项目需在 slices.md 标注 `requires_shared_resource: <name>`，命中即不可并行。
+
+**判定不出来时默认串行**。controller 不做"乐观并行"——风险大于收益。
+
+**合并策略**：每个并行切片完成后单独 commit；所有切片 done 后，controller 把各 worktree 的 commit cherry-pick 回主 worktree，冲突由 controller 处理（不交给 subagent）。`/verify` 在合并后的代码上运行。
 
 **产物**：
 - 测试 + 实现代码（按项目结构）
 - git commits（每个 TDD 循环至少一个 commit）
-- `changes/<change-id>/slices/<slice-id>/notes.md`（subagent 报告 + reviewer 结论的快照，可丢弃但保留有助 verify）
-- 更新 `slices.md` 的 status checkbox
+- `changes/<change-id>/evidence/<slice-id>/*.md`（implementer/spec-reviewer/quality-reviewer 各一份长文报告）
+- 更新 `slices.md` 的 status checkbox 与 `state.json` 的 evidence 索引
 
 **与 final-workflow.md 的映射**：第 4 (切片内执行 TDD) / 8 (切片内 TDD 执行规则) / 9 (Refactor 边界规则) 节。
 
@@ -359,9 +389,19 @@ s02 ─────────────────> s05
 
 **场景化调用**（自然语言，非 CLI flag）：
 - "PR 前自检一下" → 仅运行 V1-V8 与测试套件，不执行 sync/archive。
-- "严格校验" → 把所有 Warning 视为阻塞。
+- "严格校验" → Warning 视为阻塞（行为定义见下表），Suggestion 仍仅提示。
 - "归档所有完成的 change" → 扫描 `changes/` 下 status=`verifying` 的所有 change，批量执行 sync+archive。
 - "归档当前 change" → 默认行为。
+
+**严格度对照**（避免"strict"措辞含糊）：
+
+| 严重度 | 默认模式 | 严格模式 |
+|---|---|---|
+| Critical | 阻塞 | 阻塞 |
+| Warning | 提示 + 可 `accepted_with_risk` | 阻塞（不能 accepted_with_risk）|
+| Suggestion | 提示 | 提示 |
+
+`/verify` 输出报告同时给出退出码（§"机器可读输出"），CI 据此决定合并。
 
 **机器可读输出（CI 集成接口）**：
 - 退出码：`0` 通过，`1` 有 Critical，`2` 有 Warning 且严格模式开启，`3` 结构性错误（spec 解析失败等）。
@@ -490,6 +530,15 @@ pending ──> in_progress ──┬──> done
 - `evidence.controller_diff_check` 字段记录 §2.4 第 7 步的边界校验结果，是并行隔离的审计证据。
 - `reviews[].warnings_accepted_with_risk` 字段实现"显式接受风险"机制（吸收自 integrated-sdd-tdd 的 `accepted_with_risk` review 状态），仅 Warning 级可接受，Critical 必须修复。
 
+**state.json 中 evidence vs `evidence/` 目录的职责边界**（避免重复存储）：
+
+| 内容 | 存储位置 | 例子 |
+|---|---|---|
+| 索引（轻量、可被 jq 查询）| `state.json.slices[sid].evidence` | commit SHA 列表、测试命令字符串、reviewer verdict（approved/issues_found）、报告文件路径 |
+| 长文本内容（人读、可附图） | `evidence/<sid>/*.md` | subagent 完整报告、reviewer 列出的所有 issue 详情、benchmark 输出全文 |
+
+state.json 的 `evidence.implementer_report` 字段值应是 `"evidence/s01/implementer-report.md"`（路径），而非内容本身。这样 state.json 保持紧凑、可程序化处理；详细叙述放在独立文件，git diff 友好。
+
 ### 3.4 文件生命周期
 
 | 文件 | 创建时机 | 修改主体 | archive 时 |
@@ -499,7 +548,7 @@ pending ──> in_progress ──┬──> done
 | `changes/<id>/slices.md` | `/slice` | `/slice`、`/implement`、`/escape` | 归档 |
 | `changes/<id>/escapes.log` | 首次 `/escape` | append-only | 归档（永不删除，作审计证据）|
 | `changes/<id>/state.json` | `/clarify` 或 `/spec` 首次落盘 | 所有命令各维护对应字段；append-only 的子节点不删 | 归档 |
-| `changes/<id>/slices/<sid>/notes.md` | `/implement` 每切片 | subagent 写入 | 归档 |
+| `changes/<id>/evidence/<sid>/*.md` | `/implement` 每切片 | subagent / reviewer 各自写一份 | 归档 |
 | `changes/<id>/verify-report.{md,json}` | `/verify` | 仅 `/verify` 写入，每次覆盖 | 归档 |
 | `CONTEXT.md` | 任意时刻（懒创建） | `/clarify`、`/spec` | 不归档（项目级常驻）|
 | `specs/<capability>/spec.md` | `/verify` 首次为 capability 归档 | `/verify` | 持续演进 |
@@ -541,6 +590,11 @@ pending ──> in_progress ──┬──> done
 | `accepted_with_risk` review 结论 | integrated-sdd-tdd 替代方案 | state.json `reviews[].warnings_accepted_with_risk`，仅 Warning 适用 |
 | 变更类型路由表 | integrated-sdd-tdd 替代方案 + final-workflow.md 第 11 节 | §5 新增（取代旧 L0/L1/L2/L3 单一梯度） |
 | 否定 CLI flag 风格 | integrated-sdd-tdd 替代方案 | 全文删除 `--strict`/`--bulk`/`--dry-run`/`--review minimal`，改场景化自然语言 |
+| `evidence/<sid>/*.md` 目录命名（vs `slices/<sid>/notes.md`） | integrated-sdd-tdd v2 | 命名更语义化；同时明确 state.json 装索引、文件装内容的边界 |
+| HITL→AFK 降级路径 | integrated-sdd-tdd v2 提出（未细化） | SliceSpec 补判定主体、降级条件、`originally_hitl` 字段 |
+| L0 路径归档不污染主 spec | integrated-sdd-tdd v2 提出（未规则化） | SliceSpec 补"`-l0` 后缀 + 跳过 spec sync"规则 |
+| Strict 模式严重度语义 | integrated-sdd-tdd v2 提"strict"措辞（未定义）| SliceSpec 补"Warning 阻塞、Suggestion 仍提示"对照表 |
+| 并行判定 5 步算法 + 物理 worktree 隔离 | integrated-sdd-tdd v2 仍 hand-wave | SliceSpec 把判定主体、5 步短路检查、共享资源黑名单写死 |
 
 ### 4.3 主动取舍掉的特性
 
@@ -587,6 +641,12 @@ pending ──> in_progress ──┬──> done
 - `/clarify` 结论留在会话上下文，不落 brief.md（L0 例外）。
 - `/implement` 在缺 slices.md 时自动生成单切片占位（write_scope 取项目根），跑通后由用户事后补 spec。
 - 目标：让团队习惯 TDD + subagent 派发，而不是先学治理。
+
+**L0 路径的归档规则**（避免污染主 spec 仓库）：
+- L0 模式下的 change 可执行 `/verify` 的"PR 前自检"模式（V1-V4 跳过，只跑 V5/V6 测试套件 + V7 git diff 自检）。
+- archive 时移入 `changes/archive/YYYY-MM-DD-<id>-l0/`（后缀 `-l0` 显式标识）。
+- **绝不执行 spec sync**：L0 的 change 没有结构化 spec.md，不写入 `specs/<capability>/`。
+- 若 L0 change 事后被认为应进入主 spec，用户须先补齐 brief/spec/slices，重新运行 `/verify` 完整模式后 sync。这是单向流程，避免遗留 spec 污染。
 
 #### L1：引入契约（团队稳定后）
 
@@ -652,9 +712,11 @@ pending ──> in_progress ──┬──> done
     │   ├── state.json         # 机器状态（参见 §3.3）
     │   ├── verify-report.json # /verify 产物（机器可读）
     │   ├── verify-report.md   # /verify 产物（人读）
-    │   └── slices/
+    │   └── evidence/          # 子 agent 报告与 reviewer 长文输出
     │       └── <slice-id>/
-    │           └── notes.md   # subagent 报告
+    │           ├── implementer-report.md
+    │           ├── spec-review.md
+    │           └── quality-review.md
     └── archive/
         └── YYYY-MM-DD-<change-id>/
             └── (整个 change 目录归档，包括 state.json 与 escapes.log)
