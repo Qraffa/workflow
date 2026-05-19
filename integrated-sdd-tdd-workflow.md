@@ -221,7 +221,9 @@ flow/
       verify-report.json       # L2+ 可选，CI/批量归档使用
       evidence/                # L1+ 可选，slice/review 证据快照
         <slice-id>/
-          notes.md
+          implementer-report.md
+          spec-review.md
+          quality-review.md
     archive/
       YYYY-MM-DD-<change>/
         brief.md
@@ -281,6 +283,9 @@ changes/
 
 ## Constraints
 
+## Change Type
+<new-feature / external-contract / behavior-bug / spec-conformance-bug / refactor / performance / hotfix / prototype>
+
 ## Open Questions
 
 ## Decision Log
@@ -330,11 +335,14 @@ Scenarios: <scenario-id>
 Dependencies: none
 Parallel Group: A
 Estimated TDD Cycles: 3
+Shared Resource: none
 Write Scope:
 - src/...
 - tests/...
 
 Do Not Touch:
+- flow/specs/...
+- flow/changes/...
 - src/shared/...
 - migrations/...
 
@@ -365,15 +373,19 @@ Tasks:
 {
   "change_id": "add-auth-login",
   "status": "ready",
+  "created_at": "YYYY-MM-DDTHH:mm:ssZ",
   "post_hoc_spec_pending": false,
   "current_slice": null,
+  "parallel_guards": ["**/migrations/**", "**/config/**", "**/*.proto", "**/*.graphql"],
   "slices": {
     "SL1": {
       "status": "pending",
       "phase": null,
       "owner": null,
       "execution_mode": "AFK",
+      "originally_hitl": false,
       "estimated_cycles": 3,
+      "requires_shared_resource": null,
       "scenarios": ["auth.login.success"],
       "write_scope": ["src/auth/**", "tests/auth/**"],
       "do_not_touch": ["src/shared/**", "migrations/**"],
@@ -382,7 +394,10 @@ Tasks:
         "tests_run": [],
         "spec_review": null,
         "quality_review": null,
-        "controller_diff_check": null
+        "controller_diff_check": null,
+        "implementer_report": "evidence/SL1/implementer-report.md",
+        "spec_review_report": "evidence/SL1/spec-review.md",
+        "quality_review_report": "evidence/SL1/quality-review.md"
       }
     }
   },
@@ -416,6 +431,7 @@ Tasks:
 - 探索代码和现有文档，能从仓库回答的问题不重复问用户。
 - 一次只问一个关键问题，优先解决会影响范围和契约的问题。
 - 澄清 Problem、Goal、Scope、Non-Goals、Constraints。
+- 识别变更类型并写入 `brief.md`，供后续命令判断是否跳过 `spec`、是否强制 contract test、是否允许轻量归档。
 - 识别领域术语冲突，必要时更新 `CONTEXT.md`。
 - 识别是否适合完整流程、轻量流程或纯 TDD。
 - 对高风险或难逆转决策建议 ADR，但不默认创建。
@@ -485,7 +501,9 @@ Tasks:
 - 按 Scenario 和风险拆分行为 Slice。
 - 为每个 Slice 定义依赖、写入范围、测试策略、完成证据。
 - 为每个 Slice 定义 `Do Not Touch` 边界，覆盖共享类型、公共契约、迁移、全局配置等高冲突区域。
+- 默认把主 Spec、change 目录、CI 配置、领域语言文档、共享 schema、迁移目录列入 `Do Not Touch` 或 `parallel_guards`，除非该 Slice 的目标就是修改它们。
 - 为每个 Slice 标注 `AFK` 或 `HITL`。
+- 标注 `Shared Resource`：共享数据库、外部服务、全局缓存、测试账号等会破坏并行隔离的资源。
 - 为每个 Slice 粗估 TDD cycle 数；超过 10 个 cycle 应提示拆分。
 - 标记哪些 Slice 可以并行，哪些必须串行。
 - 给出每个 Slice 的 TDD 入口：先写哪个失败测试，验证什么行为。
@@ -544,13 +562,15 @@ Evidence: 记录测试和审查证据
 ```
 
 - 如果用户要求并行，Skill 根据写入范围和依赖判断是否可以委派多个 agent。
-- `AFK` Slice 可委派子 agent；`HITL` Slice 留在主会话执行，或先向用户确认关键决策后再降级为 `AFK`。
+- `AFK` Slice 可委派子 agent；`HITL` Slice 留在主会话执行，或在关键决策已明确后降级为 `AFK`。
+- `HITL -> AFK` 降级必须满足：用户决策可在 prompt 中复述、剩余工作是机械实现、写入边界仍满足隔离；降级后在 `state.json` 标记 `originally_hitl: true`。
+- AFK Slice 如遇新的人工裁决点，必须进入 `blocked(needs-hitl-decision)` 或触发 Escape，不能由子 agent 自行决定。
 - 子 agent 必须拿到明确上下文：Slice、Scenario、写入范围、测试策略、禁止越界项。
 - 子 agent 不应修改其他 Slice 的写入范围，不应自行改变外部契约。
 - 关键行为测试应引用对应 Scenario ID，例如 `@scenario auth.login.success`。
-- 完成一个 Slice 后，controller 必须检查实际 diff 是否落在 `Write Scope` 内、是否触碰 `Do Not Touch`。
+- 子 agent 返回后、进入 review 或标记完成前，controller 必须检查实际 diff 是否落在 `Write Scope` 内、是否触碰 `Do Not Touch`。
 - 写入边界违规是结构失败，应先阻塞或触发 Escape，不能只交给 code review 兜底。
-- 更新 `plan.md` checkbox、`state.json` 中的 Slice `phase` / evidence，L1+ 可写入 `evidence/<slice-id>/notes.md`。
+- 更新 `plan.md` checkbox、`state.json` 中的 Slice `phase` / evidence，L1+ 可写入 `evidence/<slice-id>/implementer-report.md`、`spec-review.md`、`quality-review.md`。
 
 **产物**
 
@@ -592,9 +612,11 @@ Evidence: 记录测试和审查证据
 [escape:scope-overflow]
 ```
 
+- L1+ 在 `escapes.log` append 结构化记录，至少包含 `ts`、`slice`、`tag`、`description`、`resolution_pending`。
+- 进入 mini-spec-update：只修改与该 Escape 直接相关的 Requirement、Scenario 或 Slice，不借 Escape 顺手重写整份 Spec/Plan。
 - 修改最小必要范围的 `brief.md`、`spec.md` 或 `plan.md`。
 - 更新测试策略。
-- 关闭 Escape 后恢复 `/flow:apply`。
+- 关闭 Escape 时追加 resolution 记录，或在 `state.json` 中标记 resolved，并恢复 `/flow:apply`。
 - L1+ 同步 append 到 `escapes.log`，不得删除历史 Escape 记录。
 
 **产物**
@@ -697,6 +719,14 @@ Escape 是正式回流通道，不是失败。它避免测试和代码悄悄成�
 - `archive ready changes` 可批量归档已完成且无 Critical 的多个 change。
 - L2+ 输出机器可读 `verify-report.json`，供 CI 或批量归档使用。
 
+严格度语义：
+
+| 严重度 | 默认模式 | 严格模式 |
+|---|---|---|
+| Critical | 阻塞 | 阻塞 |
+| Warning | 提示，可显式 `accepted_with_risk` | 阻塞 |
+| Suggestion | 提示 | 提示 |
+
 建议退出语义：
 
 | Code | 含义 |
@@ -767,7 +797,7 @@ flow/specs/*.md + archive + verify-report
 | `plan.md` | `/flow:plan` | `/flow:plan`、`/flow:apply`、`/flow:escape` | 随 change 归档 |
 | `state.json` | `/flow:plan` 或轻量 apply fallback | 所有 `/flow:*` 命令 | 随 change 归档，作为机器状态快照 |
 | `escapes.log` | 首次 `/flow:escape` | 仅 append | 随 change 归档，历史记录不得删除 |
-| `evidence/<slice-id>/notes.md` | `/flow:apply` 或 `/flow:review` | 子 agent / controller | 随 change 归档，可作为 review 和测试证据索引 |
+| `evidence/<slice-id>/*.md` | `/flow:apply` 或 `/flow:review` | 子 agent / controller | 随 change 归档，存放 implementer、spec review、quality review、benchmark 等长文本证据 |
 | `verify-report.md` | `/flow:close` | `/flow:close` | 随 change 归档，人读最终校验记录 |
 | `verify-report.json` | `/flow:close` | `/flow:close` | L2+ 随 change 归档，CI/批量归档读取 |
 | `flow/specs/*.md` | `/flow:close` 首次同步 capability | `/flow:close` | 项目级长期演进 |
@@ -896,8 +926,18 @@ requested -> accepted_with_risk
 - 写入范围不重叠。
 - 不同时修改同一外部契约。
 - 不共享数据库迁移、全局配置、公共类型等高冲突资源。
-- 测试运行不会互相污染。
+- 不声明同一个 `Shared Resource`，测试运行不会互相污染。
 - 每个 Slice 有清晰 Scenario 和验收证据。
+
+推荐判定顺序：
+
+1. 检查依赖图，候选 Slice 之间不得存在 `blocked_by` 路径。
+2. 展开 `Write Scope` glob，文件级或目录级重叠都视为冲突。
+3. 检查任一 Slice 的 `Do Not Touch` 是否覆盖其他 Slice 的 `Write Scope`。
+4. 检查 `parallel_guards`：迁移、全局配置、公共 schema、公共类型、CI 配置等命中即串行。
+5. 检查 `Shared Resource`：共享数据库、外部服务、测试账号、全局缓存等命中即串行。
+
+判定不出来时默认串行。并行是吞吐优化，不是正确性前提。
 
 ### 9.2 并行委派输入
 
@@ -914,9 +954,12 @@ Test strategy:
 TDD requirement:
 Expected evidence:
 Escalation rules:
+User-confirmed decisions:
 ```
 
 ### 9.3 并行后集成
+
+L2+ 并行建议使用独立 worktree 做物理隔离。每个并行 Slice 在独立 worktree 内运行测试，完成后由 controller 合并回主工作区；冲突由 controller 处理，不交给子 agent 自行解决。
 
 controller 必须执行：
 
@@ -941,6 +984,8 @@ controller 必须执行：
 - controller 的写入边界检查结果。
 - 代码 review 结果。
 - 未验证项和原因。
+
+`state.json` 只保存轻量索引和结论，例如测试命令、commit、review verdict、报告路径；长文本报告、benchmark 输出、review 细节放在 `evidence/<slice-id>/*.md`。这样状态文件可被程序查询，证据文件也保持可读、可 review。
 
 ### 10.2 Change 完成证据
 
@@ -1102,6 +1147,7 @@ Issue tracker 是协作分发工具，不是核心事实来源。
 - `/flow:*` 先作为 agent skills，不必实现 CLI。
 - PR 模板包含 close checklist。
 - 对一次性小改动允许轻量路径：`/flow:clarify` 后直接 `/flow:apply` 生成单 Slice，但不得直接归档进主 Spec；若要归档，必须补齐 `spec.md` 和 `plan.md`。
+- L0 change 若需要保留历史，只允许归档为 `archive/YYYY-MM-DD-<change>-l0/`，并显式跳过主 Spec sync；后续若要进入主 Spec，必须补齐 `brief/spec/plan` 后重新 `/flow:close`。
 
 ### L1：轻量治理
 
@@ -1116,6 +1162,7 @@ Issue tracker 是协作分发工具，不是核心事实来源。
 - 自动解析 `plan.md` Slice 和 write scope。
 - 自动判断并行冲突。
 - 自动执行 controller diff check。
+- 并行 Slice 使用独立 worktree 或等价隔离环境。
 - CI 检查 Scenario 引用悬空。
 - 外部契约变化要求测试证据。
 - `/flow:close` 输出 `verify-report.json` 和退出语义。
