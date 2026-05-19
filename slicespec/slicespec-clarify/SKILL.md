@@ -1,0 +1,227 @@
+---
+name: slicespec-clarify
+description: Stage 1 of SliceSpec. Use when the user needs to nail down the problem, scope, non-goals, and domain language for a new change before writing a spec. Replaces grill-me, grill-with-docs, brainstorming, opsx:explore.
+---
+
+# SliceSpec — Clarify
+
+Explore the problem with the user one question at a time until the goal,
+scope, non-goals, and domain language are clear enough to write a spec.
+
+**Core principle:** A vague brief produces a vague spec produces drifting
+tests. Spend the time here, not in `/verify`.
+
+**Announce at start:** "I'm using slicespec-clarify to scope the change
+before we touch any spec."
+
+## When to Use
+
+Trigger this skill when:
+
+- The user describes a problem but has not committed to a fixed scope.
+- The user wants to challenge an existing brief or spec ("are we still
+  solving the right thing?").
+- `/escape` governance has flagged the change for re-clarification.
+- A prior `/clarify` was skipped (L0) and the team is upgrading the change
+  to L1+.
+
+Do **not** use this skill when:
+
+- The user has a fully-specified change and just wants to write the spec —
+  go to `slicespec-spec`.
+- The current task is bug triage without a behaviour change — skip to
+  `slicespec-implement`.
+
+## Inputs
+
+- User's natural-language description (free-form).
+- Optional: paths to existing code, issue links, prior brief.md.
+- Optional: project's `CONTEXT.md` (read it first if present).
+
+## Process
+
+```
+┌──────────────────────────────┐
+│ 1. Read CONTEXT.md (if any)  │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ 2. Identify change type      │ ← consult shared/change-type-routing.md
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ 3. Socratic loop, one Q/A    │ ← propose your answer with every question
+│    at a time                 │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ 4. Detect saturation         │ ← 5 consecutive uncorrected answers OR
+│                              │   explicit user "ready to spec"
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│ 5. Write/update brief.md     │
+│ 6. Project state.json fields │
+│ 7. Hand off to /spec         │
+└──────────────────────────────┘
+```
+
+### Step 1 — Read CONTEXT.md
+
+If `CONTEXT.md` exists at the project root (or `CONTEXT-MAP.md` for
+multi-context repos), read it before asking your first question. Use its
+vocabulary in every subsequent question. When the user introduces a term
+that conflicts with CONTEXT.md, surface the conflict immediately:
+
+> Your glossary defines `Order` as a paid commitment. You used `Order` to
+> mean a checkout-in-progress. Are these two concepts, or is the glossary
+> stale?
+
+Never silently rewrite their term in your own words.
+
+### Step 2 — Identify change type
+
+Consult `shared/change-type-routing.md` and infer the route. Tell the user:
+
+> Based on what you said this looks like a **bug fix that changes
+> externally observable behaviour**. Per the routing table that means
+> clarify → spec (add missing scenario) → slice → implement → verify.
+> Does that match your intent?
+
+Record the answer (and any override) in brief.md's Decision Log.
+
+### Step 3 — Socratic loop
+
+Ask **one** question at a time. With every question:
+
+1. Provide your recommended answer.
+2. Offer the user three reactions: `Confirm` / `Adjust` / `Let Claude
+   decide`.
+
+Walk depth-first down the decision tree. Resolve dependencies before
+branching. Examples of good first questions:
+
+- "Whose behaviour are we changing here — end-user, internal caller, or
+  ops console?"
+- "What is the failure mode this change prevents — incorrect output,
+  outage, compliance violation?"
+- "What is the smallest scope that still solves the user's problem?"
+
+Examples of bad questions:
+
+- Multi-part ("What does X do, and how does Y interact, and...?") — split.
+- Yes/no without a recommended answer — propose one.
+- Implementation-detail ("Which library should we use?") — defer to spec
+  unless the choice is itself the external contract.
+
+When the user mentions a vague or overloaded term, sharpen it on the spot:
+
+> You said `account`. Do you mean the `Customer` (billing) or the `User`
+> (auth)? CONTEXT.md treats them as different concepts.
+
+When the user states a fact that disagrees with the code, surface the
+contradiction by reading the relevant code:
+
+> The code at `src/auth/login.py` currently rejects empty passwords
+> upstream. You said empty passwords were accepted. Which is the truth?
+
+### Step 4 — Detect saturation
+
+Stop the loop when **either**:
+
+- The user explicitly says "ready to spec" (or equivalent).
+- You have asked five consecutive questions where the user accepted your
+  recommendation without modification — that's the signal you understand
+  the domain well enough.
+
+Do not auto-stop on the first few easy answers; saturation requires
+breadth across Problem, Scope, Non-Goals, Constraints.
+
+### Step 5 — Write brief.md
+
+Use `brief-template.md`. Fill every section. Specifically:
+
+- **Problem**: business-perspective sentences only. No implementation.
+- **Goal**: an observable outcome, not "ship the feature".
+- **Scope**: bullet list of capabilities included.
+- **Non-Goals**: bullet list of capabilities deliberately excluded.
+- **Domain Language**: every domain term the user used during the loop,
+  with a one-line definition. Mark conflicts with CONTEXT.md inline.
+- **Constraints**: performance, compliance, migration, external
+  dependencies.
+- **Open Questions**: anything still unresolved. Mark as either
+  `[blocking-spec]` or `[deferred-to-impl]`.
+- **Decision Log**: every confirmed choice with date and brief reason.
+
+If brief.md already exists (re-clarification), append a new Decision Log
+entry rather than overwriting the prior one. Keep the audit trail.
+
+### Step 6 — Project to state.json
+
+Write or update `changes/<change-id>/state.json`:
+
+```json
+{
+  "change_id": "<kebab-case>",
+  "status": "draft",
+  "created_at": "<ISO-8601 UTC>",
+  "updated_at": "<ISO-8601 UTC>"
+}
+```
+
+If state.json already exists, only bump `updated_at`.
+
+### Step 7 — Hand off
+
+After saving brief.md, announce:
+
+> Brief saved to `changes/<change-id>/brief.md`. Status: `draft`.
+> Next step: run `slicespec-spec` to turn this into a contract.
+
+Do not invoke `/spec` yourself. The user decides when they're ready.
+
+## L0 exception
+
+In L0 mode (first pilot, single developer, no spec repository yet):
+
+- brief.md is optional. The conversation context is enough.
+- `state.json` is still written so subsequent commands can discover the
+  change ID.
+- When the user later wants to upgrade to L1, run `/clarify` again to
+  backfill brief.md from the conversation.
+
+`/spec` will reverse-fill a minimal brief (Problem / Goal / Scope / Non-
+Goals only) if it sees no brief.md when invoked — but treat that as a
+fallback, not a default.
+
+## Soft dependencies
+
+- `CONTEXT.md`: read if present, do not require.
+- `docs/adr/`: read if relevant to the change area, do not require.
+- Existing brief.md from a prior `/clarify`: respect it; append rather
+  than overwrite.
+
+## Anti-patterns
+
+| Symptom | Fix |
+|---|---|
+| You ask three questions in one message. | Split. One question, one recommendation. |
+| You wrote brief.md before five rounds of dialogue. | Erase and restart. Saturation must be earned. |
+| Your brief.md mentions specific libraries, classes, file paths. | Move those to the future spec.md or delete them. brief.md is business-level. |
+| You contradict CONTEXT.md without surfacing the conflict. | Re-read CONTEXT.md. Make the user resolve the tension. |
+| You write Open Questions and call yourself done. | Tag each Open Question `[blocking-spec]` or `[deferred-to-impl]`. Resolve all `[blocking-spec]` before exiting. |
+
+## Templates
+
+- `brief-template.md` — the 8-section brief template.
+
+## Related skills
+
+- `slicespec-spec` — next step.
+- `slicespec-escape` — when implementation finds you missed something
+  here, /escape kicks back to a mini-clarify.
+
+## Mapping to unified-workflow.md
+
+This skill implements §2.1 of unified-workflow.md. See
+`../MAPPING-unified-workflow.md` for the full crosswalk.
