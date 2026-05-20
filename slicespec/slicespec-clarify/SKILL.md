@@ -22,8 +22,6 @@ Trigger this skill when:
 - The user wants to challenge an existing brief or spec ("are we still
   solving the right thing?").
 - `/escape` governance has flagged the change for re-clarification.
-- A prior `/clarify` was skipped (L0) and the team is upgrading the change
-  to L1+.
 
 Do **not** use this skill when:
 
@@ -179,20 +177,6 @@ After saving brief.md, announce:
 > Next step: run `slicespec-spec` to turn this into a contract.
 
 Do not invoke `/spec` yourself. The user decides when they're ready.
-
-## L0 exception
-
-In L0 mode (first pilot, single developer, no spec repository yet):
-
-- brief.md is optional. The conversation context is enough.
-- `state.json` is still written so subsequent commands can discover the
-  change ID.
-- When the user later wants to upgrade to L1, run `/clarify` again to
-  backfill brief.md from the conversation.
-
-`/spec` will reverse-fill a minimal brief (Problem / Goal / Scope / Non-
-Goals only) if it sees no brief.md when invoked — but treat that as a
-fallback, not a default.
 
 ## Soft dependencies
 

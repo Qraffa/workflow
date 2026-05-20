@@ -263,18 +263,6 @@ log. `/verify` reads it and decides.
 | Reuse a Scenario ID that was previously REMOVED or superseded | `shared/scenario-id-rules.md` reserves these forever. |
 | Mark `resolved: true` without actually editing spec.md or slices.md | The escape is open until the document agrees. |
 
-## L0 path
-
-In L0 mode (no spec.md), `/escape` still applies — but the "mini-spec-
-update" reduces to:
-
-- Append a note to brief.md's "Decision Log" describing the discovery.
-- Append the escape entry to escapes.log.
-- Decide whether to split / re-scope the slice.
-
-L0 changes can drift further than L1+ changes because there's no spec
-to anchor against. That's part of the trade-off; document it.
-
 ## Templates
 
 - `escapes-log-template.md` — full entry format.

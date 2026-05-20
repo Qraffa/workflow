@@ -25,7 +25,6 @@ state-writer to project markdown into state.json, (c) bump `updated_at`.
 {
   "change_id": "add-auth-login",
   "status": "draft|specified|implementing|verifying|archived",
-  "post_hoc_spec_pending": false,
   "created_at": "2026-05-19T10:00:00Z",
   "updated_at": "2026-05-19T15:30:00Z",
   "current_slice": "add-auth-login-s02",
@@ -143,12 +142,6 @@ Required for every `done` slice. Values:
 
 - `passed`
 - `failed:<comma-separated-files>` (slice blocked, see §11 of unified-workflow.md)
-
-### `post_hoc_spec_pending`
-
-`true` when `/implement` ran before `/spec` (P0 hotfix path). `/verify` strict
-mode treats this as Critical until the user fills spec.md and flips the field
-back to `false`.
 
 ### `parallel_guards`
 

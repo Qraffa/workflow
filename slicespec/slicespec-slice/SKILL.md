@@ -28,9 +28,8 @@ Trigger this skill when:
 
 Do **not** use this skill when:
 
-- The change is an internal refactor with no spec — go straight to
-  `/implement`.
 - The spec is incomplete (still has `[blocking-spec]` open questions).
+- All slices for this change already exist and are not stale.
 
 ## Inputs
 

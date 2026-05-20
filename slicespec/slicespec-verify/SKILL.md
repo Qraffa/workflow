@@ -72,7 +72,7 @@ before running.
 └────────────────┬─────────────────────┘
                  ▼
 ┌──────────────────────────────────────┐
-│ 3. Semantic V1-V10 + V-appendix      │
+│ 3. Semantic V1-V10                   │
 └────────────────┬─────────────────────┘
                  ▼
 ┌──────────────────────────────────────┐
@@ -132,7 +132,7 @@ Parse spec.md. Reject (exit code 3) if any of:
 
 Structural errors block; they are not "Warnings".
 
-### Step 3 — Semantic V1-V10 + V-appendix
+### Step 3 — Semantic V1-V10
 
 Run each check. Results are recorded in verify-report.md per check id.
 Use `verify-checklist.md` for the full text.
@@ -149,7 +149,6 @@ Use `verify-checklist.md` for the full text.
 | V8 | spec.md does not leak internal implementation detail. |
 | V9 | Every slice's actual diff respected its `write_scope` and `do_not_touch` (read `state.json.slices[*].evidence.controller_diff_check`; all must be `passed` OR followed by a documented `/escape` widening). |
 | V10 | No `## ADDED` Scenario ID intersects the reserved set (archived IDs + REMOVED + superseded). |
-| V-appendix | `state.json.post_hoc_spec_pending` is `false` (Critical in strict; Warning in default). |
 
 Each check returns one of: `pass`, `warning`, `critical`. Warnings can
 be `accepted_with_risk` in default mode if state.json carries a
@@ -193,7 +192,7 @@ Write two files:
 Each report contains:
 
 - Mode chosen.
-- Result of V1-V10 and V-appendix (`pass` / `warning` / `critical`).
+- Result of V1-V10 (`pass` / `warning` / `critical`).
 - Escape governance result.
 - Test suite results.
 - Final verdict and exit code.
@@ -239,8 +238,7 @@ auto-resolve.
 ### Step 8 — Archive
 
 Move `changes/<change-id>/` to
-`changes/archive/YYYY-MM-DD-<change-id>/`. For L0 paths (see
-`shared/change-type-routing.md`), append `-l0`.
+`changes/archive/YYYY-MM-DD-<change-id>/`.
 
 Commit. Optionally `gh pr create` if the user asks. Default branch and
 title come from the change id and brief.md "Goal".
@@ -282,22 +280,6 @@ When the user asks "archive all completed changes":
 - Aggregate exit codes: 0 only if every change passed; otherwise the
   max of per-change exit codes.
 
-## L0 archives
-
-When `state.json` carries L0 indicators (no spec.md, `post_hoc_spec_pending`
-true and never backfilled, or brief.md's Decision Log says "L0 mode"):
-
-- Run V5 (unit tests) and V6 (escapes closed) and the test suite.
-- Skip V1-V4 and V7-V10 (spec-dependent).
-- Append `-l0` to the archive directory name:
-  `changes/archive/YYYY-MM-DD-<change-id>-l0/`.
-- **Do NOT** sync into `specs/<capability>/spec.md`. L0 changes never
-  contribute to the main spec repository.
-- If the user later wants to promote an L0 change into the spec
-  repository, they must run `/clarify` → `/spec` → `/slice` → re-`/verify`
-  in default mode against the change's existing implementation, then
-  re-archive. This is a one-way upgrade.
-
 ## Anti-patterns
 
 | Symptom | Fix |
@@ -306,12 +288,11 @@ true and never backfilled, or brief.md's Decision Log says "L0 mode"):
 | Sync silently merged contradictory delta blocks. | Abort sync. Surface conflict. |
 | Verify-report claims V9 pass but state.json's `controller_diff_check` shows `failed`. | Treat state.json as authoritative; fix the report logic. |
 | Verify-report skipped V2 because no test file was found. | Block. Either no tests exist (Critical) or the test root is configured wrong (ask). |
-| L0 archive included a spec sync. | Refuse. L0 archives never sync. |
 | Strict mode passed a Warning. | Reject. Re-run in strict logic. |
 
 ## Templates
 
-- `verify-checklist.md` — V1-V10 + V-appendix in full prose.
+- `verify-checklist.md` — V1-V10 in full prose.
 - `verify-report-template.md` — markdown report shape.
 
 ## Related skills

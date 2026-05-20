@@ -35,7 +35,6 @@ and write only the files listed here. Anything else is a bug.
 - Use kebab-case, lower-case, ASCII only. Example: `add-auth-login`.
 - The change ID is permanent. Do not rename a change directory once `state.json`
   exists; rename only triggers confusion across commits, escapes, and evidence.
-- For L0 archives, append `-l0` suffix when the change is moved to `archive/`.
 
 ## Slice ID conventions
 

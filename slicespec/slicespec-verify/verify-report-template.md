@@ -16,7 +16,7 @@ archive proceeded and any unresolved Warnings.>
 - All Scenarios have `id:` HTML comments: <yes / no>
 - Delta blocks well-formed: <yes / no>
 
-## Semantic checks (V1-V10 + V-appendix)
+## Semantic checks (V1-V10)
 
 | Id | Description | Verdict | Notes |
 |---|---|---|---|
@@ -30,7 +30,6 @@ archive proceeded and any unresolved Warnings.>
 | V8 | Spec does not leak implementation detail | <verdict> | <one-line> |
 | V9 | Slice diffs respected scope | <verdict> | <one-line> |
 | V10 | No archived Scenario IDs reused | <verdict> | <one-line> |
-| V-app | Post-hoc spec backfill clear | <verdict> | <one-line> |
 
 ### V<N> detail
 
@@ -80,8 +79,7 @@ archive proceeded and any unresolved Warnings.>
 ## Archive (only present after archive)
 
 - Source: `changes/<change-id>/`
-- Destination: `changes/archive/YYYY-MM-DD-<change-id>/` (or `-l0`
-  suffix for L0 changes)
+- Destination: `changes/archive/YYYY-MM-DD-<change-id>/`
 - Commit SHA: `<sha>`
 
 ## Verdict

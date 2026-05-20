@@ -12,7 +12,7 @@ slices.md at the moment `/verify` runs (not historical).
 |---|---|---|
 | `escapes_count > 3` | Warning | Warning |
 | `escapes_count > slices_total / 2` | Block | Block |
-| Any escape with `resolved_pending: yes` | Block | Block |
+| Any escape with `resolution_pending: yes` | Block | Block |
 
 When the second threshold trips, `/verify` exits with code 1 and prints a
 recommendation to restart from `/clarify`.
@@ -57,7 +57,6 @@ Reviewer subagents are not asked to judge scope. Diff checks are mechanical.
 
 | Metric | Default mode | Strict mode |
 |---|---|---|
-| `post_hoc_spec_pending == true` | Warning | Block |
 | Any `active` scenario without test reference | Block | Block |
 | Any spec text matching implementation-detail patterns (e.g. file path, class name) | Warning | Warning |
 | Any `## ADDED` requirement reusing a reserved scenario ID | Block | Block |

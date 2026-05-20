@@ -1,12 +1,11 @@
-# Verify Checklist (V1-V10 + V-appendix)
+# Verify Checklist (V1-V10)
 
 These are the semantic checks slicespec-verify runs. Each is documented
 here with: what it checks, how to check it, when it warrants `pass`,
 `warning`, or `critical`.
 
-The V1-V8 set comes from final-workflow.md §12. V9, V10, and
-V-appendix are SliceSpec additions for diff enforcement, ID reservation,
-and post-hoc spec accounting.
+The V1-V8 set comes from final-workflow.md §12. V9 and V10 are
+SliceSpec additions for diff enforcement and ID reservation.
 
 ## V1 — Spec still expresses real business intent
 
@@ -226,20 +225,6 @@ union(
 
 - `pass` — intersection is empty.
 - `critical` — non-empty intersection. Renaming required.
-
-## V-appendix — post-hoc spec backfill
-
-**What it checks:** `state.json.post_hoc_spec_pending == false`.
-
-This flag becomes `true` when `/implement` ran before `/spec` (a P0
-hotfix path). It must flip back to `false` once the user backfills
-brief.md and spec.md and verifies them.
-
-**Verdicts:**
-
-- `pass` — flag is `false`.
-- `warning` (default mode) — flag is `true`, archive allowed with note.
-- `critical` (strict mode) — flag is `true`, block until backfilled.
 
 ## Combining verdicts
 

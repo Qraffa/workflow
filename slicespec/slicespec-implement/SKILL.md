@@ -31,12 +31,13 @@ Trigger this skill when:
 
 - `slices.md` exists and at least one slice is `pending`.
 - The user wants to start, resume, or continue implementation.
-- An L0 change wants to execute without a spec (auto-fallback path).
 
 Do **not** use this skill when:
 
 - All slices are `done`. Run `slicespec-verify` instead.
 - A slice is `escaped(open)`. Run `slicespec-escape` to resolve first.
+- `spec.md` or `slices.md` does not exist. Run the earlier stages
+  first; this skill has no shortcut path.
 
 ## Inputs
 
@@ -382,20 +383,19 @@ when:
 - No skipping spec compliance review.
 - No mixing slices in a single dispatch.
 
-## Soft fallbacks
+## Missing inputs
 
-- If `slices.md` is missing: auto-generate a single placeholder slice
-  with `write_scope: ["**"]` and `do_not_touch` defaults, and warn the
-  user that they should run `/slice` properly. Do not silently behave
-  as if everything is fine.
-- If `spec.md` is missing: trigger an L0 fallback. The slice's
-  Scenarios are pulled from brief.md "Scope" bullets; tests reference
-  scenario-less IDs (`l0.<slice-id>.<seq>`); state.json gets
-  `post_hoc_spec_pending = true`. `/verify` will refuse to archive
-  until the user backfills spec.md.
-- If `brief.md` is missing: do not auto-fallback. Force the user to
-  run `/clarify` at least minimally — there is no recovery if the
-  problem itself is unknown.
+`slicespec-implement` is the only stage that touches code. It assumes
+the contract layer is in place. If any input is missing, stop and
+delegate:
+
+- `brief.md` missing → run `slicespec-clarify`.
+- `spec.md` missing → run `slicespec-spec`.
+- `slices.md` missing → run `slicespec-slice`.
+
+There is no auto-generated placeholder, no scenario-less ID space, no
+post-hoc backfill flag. If you find yourself wanting one, the change
+is not ready for implementation.
 
 ## Templates
 

@@ -10,7 +10,7 @@ capture the design?"
 |---|---|
 | #1 Concision first (6 commands, 4 docs, 1 state file) | `README.md` summary + 6 SKILL.md + 4 templates (brief, spec, slices, escapes) + `shared/state-schema.md` |
 | #2 Contract / implementation separation | `slicespec-spec/SKILL.md` "Allowed and forbidden in spec.md" + `slicespec-slice/SKILL.md` write_scope rules |
-| #3 Soft dependencies | Every SKILL.md "Soft dependencies" section + `slicespec-implement` L0 fallbacks |
+| #3 Soft dependencies | Every SKILL.md "Soft dependencies" section |
 | #4 Subagent parallelism | `slicespec-implement/SKILL.md` Mode A + `slicespec-slice/parallel-check.md` |
 | #5 Escape Hatch first-class | `slicespec-escape/SKILL.md` (entire) |
 | #6 Natural-language intent, no CLI flags | `slicespec-verify/SKILL.md` Modes table (intent → mode) |
@@ -45,14 +45,18 @@ capture the design?"
 | §4.1 Command-by-command table | This document (above) + `README.md` "Designed against" |
 | §4.2 Absorbed strengths | `README.md` "License & origin" |
 | §4.3 Removed features | Each SKILL.md notes its consolidations (e.g. spec=proposal+design merged; verify=verify+sync+archive merged) |
-| §4.4 Net new | `/escape` skill (entire); V9, V10, V-appendix in `slicespec-verify/verify-checklist.md`; controller-diff-check as mechanical gate |
+| §4.4 Net new | `/escape` skill (entire); V9 and V10 in `slicespec-verify/verify-checklist.md`; controller-diff-check as mechanical gate |
 
-## §5 Onboarding and routing
+## §5 Routing
 
 | §5.x | Topic | Where |
 |---|---|---|
-| §5.1 L0 → L3 ladder | `README.md` "L0 → L3" + `slicespec-clarify/SKILL.md` L0 exception + `slicespec-implement/SKILL.md` L0 fallback + `slicespec-verify/SKILL.md` L0 archives |
 | §5.2 Change-type routing | `shared/change-type-routing.md` |
+
+> §5.1 (L0–L3 maturity ladder) is intentionally omitted from this
+> skill set. SliceSpec ships only the fully-formed pipeline; there is
+> no opt-in lite mode. If a project is not ready for the full
+> discipline, it should adopt the workflow when it is.
 
 ## §6 Implementation engineering
 
@@ -69,7 +73,7 @@ capture the design?"
 | §7.1 Fits | `README.md` "Designed against" |
 | §7.2 Doesn't fit | `slicespec-clarify/SKILL.md` "Do not use this skill when" + `README.md` What SliceSpec is NOT |
 | §7.3 Known risks (table) | Each risk row covered: worktree conflicts (`parallel-check.md`); subagent cost (`slicespec-implement/SKILL.md` model selection); ID drift (V10); /escape abuse (`shared/governance-thresholds.md`); CONTEXT.md disagreement (`slicespec-clarify/SKILL.md` step 1); state.json drift (`shared/state-schema.md`); ID reuse (`shared/scenario-id-rules.md`); write_scope escape (controller-diff-check + /escape); destructive Scenario rewrite (Supersedes pattern in spec-template.md) |
-| §7.4 Exit signals | `README.md` "L0 → L3" + `shared/governance-thresholds.md` aggregate counters surfaced via /verify |
+| §7.4 Exit signals | `shared/governance-thresholds.md` aggregate counters surfaced via /verify |
 
 ## §8 One-liner summary
 
@@ -89,10 +93,12 @@ artefacts.
 
 These are unified-workflow.md decisions that don't manifest as code:
 
-- **L3-only tooling** (traceability graphs, semantic LLM checks) — the
-  v-checklist names V1 and V3 as places where LLM scanning is
-  appropriate, but the skill does not bundle the LLM checker itself.
-  At L3, projects extend `slicespec-verify` with their own LLM passes.
+- **L0 → L3 maturity ladder.** SliceSpec ships only the fully-formed
+  pipeline. There is no pilot mode, no opt-in compliance tier, no
+  hotfix-skip-spec fallback. The six commands are the workflow.
+- **Bundled LLM checkers** — V1 and V3 mention LLM scanning as a
+  helpful technique inside `/verify`, but the skill does not ship one.
+  Projects supply their own if they want it.
 - **Specific test runners** — `slicespec-verify` step 5 enumerates
   detection heuristics but does not hard-code one runner. Project-
   specific.

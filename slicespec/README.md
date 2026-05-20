@@ -16,7 +16,7 @@ Code skills plus shared reference docs.
 | 3 | `slicespec-slice` | Break the spec into tracer-bullet vertical slices. Declare write_scope, test_strategy. | `changes/<id>/slices.md` |
 | 4 | `slicespec-implement` | TDD per slice. Subagent for AFK, main session for HITL. Two-stage review + mechanical diff check. | git commits + `changes/<id>/evidence/<sid>/` |
 | 5 | `slicespec-escape` | Audited mid-flight contract change. Pauses slice, mini-spec-update, resumes. | append to `changes/<id>/escapes.log` |
-| 6 | `slicespec-verify` | V1-V10 + V-appendix + tests, then sync + archive. | `changes/<id>/verify-report.{md,json}` + archive move |
+| 6 | `slicespec-verify` | V1-V10 + tests, then sync + archive. | `changes/<id>/verify-report.{md,json}` + archive move |
 
 `shared/` carries cross-skill rules:
 
@@ -90,23 +90,6 @@ has `name:` and `description:` frontmatter. Each skill is invoked by
 the user typing `/slicespec-clarify`, `/slicespec-spec`, etc., or by
 Claude detecting the trigger keywords in the description.
 
-## L0 → L3 maturity ladder
-
-Per `unified-workflow.md` §5.1:
-
-- **L0** — Pilot. Use `/slicespec-clarify` + `/slicespec-implement` only.
-  No spec, no slices required. Archives skip the spec sync.
-- **L1** — Stable use. brief.md and state.json required. `/spec` and
-  `/slice` come in. Pre-PR `/verify` runs as a sanity check.
-- **L2** — Production. Full pipeline, escape hatch, strict-mode
-  `/verify` in CI.
-- **L3** — Compliance. Add traceability graphs, semantic LLM checks,
-  external-call audits. /verify's plug-in surface, not changes to the
-  six skills.
-
-Move up the ladder when the team is comfortable, not before. SliceSpec
-explicitly avoids forcing heavy governance on day one.
-
 ## Reading order
 
 Start with `MAPPING-unified-workflow.md` for the conceptual overview.
@@ -126,8 +109,6 @@ and load-bearing.
 
 - **A new methodology.** It is a packaging of SDD + TDD + subagent
   parallelism, optimised for one specific environment (Claude Code).
-- **A heavy framework.** L0 mode is two commands and zero required
-  files. L1+ adds discipline; L3 is opt-in.
 - **A test generator.** Tests are still written by humans or
   implementers. SliceSpec only enforces that they exist and reference
   Scenarios.

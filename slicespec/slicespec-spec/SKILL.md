@@ -29,12 +29,11 @@ Trigger this skill when:
 Do **not** use this skill when:
 
 - The change is a pure internal refactor.
-- The change is a P0 hotfix and the user explicitly chose "spec later".
 - `brief.md` still has open `[blocking-spec]` questions.
 
 ## Inputs
 
-- `changes/<change-id>/brief.md` (or in-conversation context if L0).
+- `changes/<change-id>/brief.md`.
 - `specs/<capability>/spec.md` (if the capability exists — used to
   generate delta blocks).
 - `shared/scenario-id-rules.md` — ID format and lifecycle rules.
@@ -44,7 +43,7 @@ Do **not** use this skill when:
 
 ```
 ┌──────────────────────────────────────┐
-│ 1. Read brief.md (or backfill)       │
+│ 1. Read brief.md (required)          │
 └────────────────┬─────────────────────┘
                  ▼
 ┌──────────────────────────────────────┐
@@ -71,10 +70,10 @@ Do **not** use this skill when:
 
 ### Step 1 — Read brief
 
-Read `brief.md`. If it is missing (L0 path), generate a minimal four-section
-brief.md (Problem / Goal / Scope / Non-Goals) by interviewing the user
-once. Do not skip the brief — even a 10-line backfill is better than
-none. After backfilling, return to step 2.
+Read `brief.md`. If it is missing, stop and ask the user to run
+`slicespec-clarify` first — a spec without a brief has no anchor for
+"why this change exists". Do not attempt to invent the brief from
+context.
 
 ### Step 2 — Greenfield vs brownfield
 
@@ -279,7 +278,7 @@ Notes:
 
 ## Soft dependencies
 
-- `brief.md`: backfill if missing.
+- `brief.md`: required input (produced by `slicespec-clarify`).
 - `CONTEXT.md`: use vocabulary; do not require.
 - `docs/adr/`: cross-reference if relevant; do not require.
 
