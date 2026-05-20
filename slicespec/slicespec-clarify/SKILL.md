@@ -1,6 +1,6 @@
 ---
 name: slicespec-clarify
-description: Stage 1 of SliceSpec. Use when the user needs to nail down the problem, scope, non-goals, and domain language for a new change before writing a spec. Replaces grill-me, grill-with-docs, brainstorming, opsx:explore.
+description: Stage 1 of SliceSpec. Use when the user needs to nail down the problem, scope, non-goals, and domain language for a new change before writing a spec.
 ---
 
 # SliceSpec — Clarify
@@ -205,7 +205,3 @@ Do not invoke `/spec` yourself. The user decides when they're ready.
 - `slicespec-escape` — when implementation finds you missed something
   here, /escape kicks back to a mini-clarify.
 
-## Mapping to unified-workflow.md
-
-This skill implements §2.1 of unified-workflow.md. See
-`../MAPPING-unified-workflow.md` for the full crosswalk.

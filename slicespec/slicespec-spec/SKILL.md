@@ -1,6 +1,6 @@
 ---
 name: slicespec-spec
-description: Stage 2 of SliceSpec. Use after slicespec-clarify (or when the user already knows the contract). Defines external behaviour via Requirements + Given/When/Then Scenarios with stable IDs. Merges opsx:propose, opsx:new, opsx:continue.
+description: Stage 2 of SliceSpec. Use after slicespec-clarify (or when the user already knows the contract). Defines external behaviour via Requirements + Given/When/Then Scenarios with stable IDs.
 ---
 
 # SliceSpec — Spec
@@ -295,7 +295,3 @@ Notes:
 - `slicespec-verify` — syncs spec.md into `specs/<capability>/spec.md`
   during archive.
 
-## Mapping to unified-workflow.md
-
-This skill implements §2.2 of unified-workflow.md. See
-`../MAPPING-unified-workflow.md` for the full crosswalk.

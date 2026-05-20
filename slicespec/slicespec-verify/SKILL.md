@@ -1,6 +1,6 @@
 ---
 name: slicespec-verify
-description: Final stage of SliceSpec. Validates Spec/Test/Code semantic alignment via the V1-V10 checklist, runs governance thresholds, executes the test suite, syncs delta specs into specs/<capability>/spec.md, and archives the change. Replaces opsx:verify, opsx:sync, opsx:archive, finishing-a-development-branch.
+description: Final stage of SliceSpec. Validates Spec/Test/Code semantic alignment via the V1-V10 checklist, runs governance thresholds, executes the test suite, syncs delta specs into specs/<capability>/spec.md, and archives the change.
 ---
 
 # SliceSpec — Verify
@@ -305,7 +305,3 @@ When the user asks "archive all completed changes":
 - `slicespec-escape` — every entry in escapes.log is something this
   skill governance-checks.
 
-## Mapping to unified-workflow.md
-
-This skill implements §2.6 of unified-workflow.md. See
-`../MAPPING-unified-workflow.md` for the full crosswalk.

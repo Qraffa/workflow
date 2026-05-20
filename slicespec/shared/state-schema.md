@@ -141,7 +141,7 @@ to AFK during `/implement`. Audit trail; never reset to `false`.
 Required for every `done` slice. Values:
 
 - `passed`
-- `failed:<comma-separated-files>` (slice blocked, see §11 of unified-workflow.md)
+- `failed:<comma-separated-files>` — slice blocked; see `slicespec-implement/controller-diff-check.md` for the algorithm and `slicespec-escape/SKILL.md` for the resolution path.
 
 ### `parallel_guards`
 

@@ -1,6 +1,6 @@
 ---
 name: slicespec-slice
-description: Stage 3 of SliceSpec. Use after slicespec-spec. Breaks the spec into tracer-bullet vertical slices with HITL/AFK type, write_scope, do_not_touch, blocked_by, and test_strategy. Replaces to-issues, opsx tasks generation, writing-plans.
+description: Stage 3 of SliceSpec. Use after slicespec-spec. Breaks the spec into tracer-bullet vertical slices with HITL/AFK type, write_scope, do_not_touch, blocked_by, and test_strategy.
 ---
 
 # SliceSpec — Slice
@@ -88,7 +88,7 @@ shared schemas, root config files. These become `parallel_guards`.
 
 ### Step 3 — Draft tracer-bullet slices
 
-Per `final-workflow.md` §6, prioritise:
+Prioritise slices in this order:
 
 1. **High business value** — the happy-path scenarios.
 2. **High risk / high failure cost** — security, money, irreversibility.
@@ -104,7 +104,7 @@ A slice must satisfy all six rules:
 - Demoable on its own.
 - Covers one or more Scenario IDs explicitly.
 - Has a clear test strategy (acceptance / integration / contract /
-  unit, chosen per scenario per `final-workflow.md` §7).
+  unit, chosen per scenario per the "Test strategy guide" below).
 - Lists files it will create or modify (the eventual write_scope).
 - Estimated to finish in fewer than ~10 TDD cycles.
 
@@ -234,7 +234,7 @@ Every slice in slices.md must include:
 
 ## Test strategy guide
 
-From `final-workflow.md` §7. Use it when assigning layers.
+Use this map when assigning a layer to each Scenario.
 
 | Spec content | Recommended layer |
 |---|---|
@@ -286,7 +286,3 @@ does not encode.
 - `slicespec-implement` — consumes this skill's output.
 - `slicespec-escape` — may rewrite this skill's output mid-flight.
 
-## Mapping to unified-workflow.md
-
-This skill implements §2.3 of unified-workflow.md. See
-`../MAPPING-unified-workflow.md` for the full crosswalk.

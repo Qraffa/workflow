@@ -4,8 +4,9 @@ These are the semantic checks slicespec-verify runs. Each is documented
 here with: what it checks, how to check it, when it warrants `pass`,
 `warning`, or `critical`.
 
-The V1-V8 set comes from final-workflow.md §12. V9 and V10 are
-SliceSpec additions for diff enforcement and ID reservation.
+V1-V8 are the SDD/TDD semantic alignment checks. V9 and V10 are
+SliceSpec-specific: V9 enforces the per-slice write_scope mechanically,
+V10 protects archived Scenario IDs from reuse.
 
 ## V1 — Spec still expresses real business intent
 

@@ -1,6 +1,6 @@
 ---
 name: slicespec-implement
-description: Stage 4 of SliceSpec. Executes one slice at a time via TDD with subagent dispatch (AFK) or direct main-session work (HITL), then runs spec-compliance and code-quality review subagents. Includes mechanical controller diff check. Replaces opsx:apply, tdd, subagent-driven-development, executing-plans.
+description: Stage 4 of SliceSpec. Executes one slice at a time via TDD with subagent dispatch (AFK) or direct main-session work (HITL), then runs spec-compliance and code-quality review subagents. Includes mechanical controller diff check.
 ---
 
 # SliceSpec — Implement
@@ -241,7 +241,7 @@ COMMIT
 Iterate until all Scenarios in `covers` are exercised. Then proceed to
 step 4.
 
-Refactor boundary rules (from `final-workflow.md` §9):
+Refactor boundary rules:
 
 | Change scope | What's allowed |
 |---|---|
@@ -411,7 +411,3 @@ is not ready for implementation.
 - `slicespec-escape` — handles every mid-slice contract change.
 - `slicespec-verify` — runs after all slices are `done`.
 
-## Mapping to unified-workflow.md
-
-This skill implements §2.4 of unified-workflow.md. See
-`../MAPPING-unified-workflow.md` for the full crosswalk.

@@ -3,9 +3,9 @@
 > SDD + TDD as a six-skill pipeline. Contracts up front, tracer-bullet
 > slices, subagent-driven TDD, audited escape hatch, single-pass verify.
 
-SliceSpec implements the design described in `final-workflow.md` and
-operationalised in `unified-workflow.md`. It is a family of six Claude
-Code skills plus shared reference docs.
+SliceSpec is a family of six Claude Code skills plus shared reference
+docs. Together they take a change from a vague idea to a verified,
+archived, contract-aligned delivery without losing the audit trail.
 
 ## At a glance
 
@@ -25,9 +25,6 @@ Code skills plus shared reference docs.
 - `governance-thresholds.md` — escape and review thresholds
 - `scenario-id-rules.md` — Scenario ID format, lifecycle, reserved set
 - `change-type-routing.md` — which stages each change type takes
-
-`MAPPING-unified-workflow.md` is the section-by-section crosswalk back
-to `unified-workflow.md`.
 
 ## Designed against
 
@@ -92,8 +89,7 @@ Claude detecting the trigger keywords in the description.
 
 ## Reading order
 
-Start with `MAPPING-unified-workflow.md` for the conceptual overview.
-Then read the six `SKILL.md` files in order:
+Read the six `SKILL.md` files in order:
 
 1. `slicespec-clarify/SKILL.md`
 2. `slicespec-spec/SKILL.md`
@@ -115,16 +111,12 @@ and load-bearing.
 - **A CI replacement.** `/verify` returns an exit code that CI can
   gate on, but CI is still where the test suite runs at full scope.
 
-## License & origin
+## Conventions in this repo
 
-SliceSpec is an internal scaffold. Concepts and patterns are absorbed
-from:
-
-- OpenSpec (`openspec`) — delta spec syntax, requirement-granularity
-  merge.
-- matt-skills — Socratic clarification, HITL/AFK slice typing,
-  CONTEXT.md domain-language pattern.
-- superpowers — subagent dispatch, two-stage review, plan-as-memory.
-
-All three were studied in `unified-workflow.md` and reduced to the six
-skills here.
+- Every skill is self-contained and addressable via Claude Code's
+  skill discovery. The `name:` and `description:` frontmatter is what
+  Claude reads when picking a skill.
+- `shared/*.md` is referenced from skills by relative path. Treat
+  these as load-bearing — they encode rules every skill relies on.
+- Markdown is the source of truth. `state.json` is derived; if the two
+  disagree, rebuild `state.json` from markdown.

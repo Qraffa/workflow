@@ -275,8 +275,3 @@ log. `/verify` reads it and decides.
   spec.md this skill produced.
 - `slicespec-verify` — counts escapes and enforces governance.
 
-## Mapping to unified-workflow.md
-
-This skill implements §2.5 of unified-workflow.md (the dedicated
-escape mechanism). See `../MAPPING-unified-workflow.md` for the full
-crosswalk.
