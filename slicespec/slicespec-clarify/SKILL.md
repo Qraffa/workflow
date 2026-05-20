@@ -44,13 +44,13 @@ context fits, suggest the command and wait for the user to invoke it.
 └──────────────┬───────────────┘
                ▼
 ┌──────────────────────────────┐
-│ 3. Socratic loop, one Q/A    │ ← propose your answer with every question
-│    at a time                 │
+│ 3. Socratic loop, one Q/A    │ ← list possible answers and propose your
+│    at a time                 │   recommendation with every question
 └──────────────┬───────────────┘
                ▼
 ┌──────────────────────────────┐
-│ 4. Detect saturation         │ ← 5 consecutive uncorrected answers OR
-│                              │   explicit user "ready to spec"
+│ 4. Detect saturation         │ ← explicit user "ready to spec" OR
+│                              │   your judgment that context is sufficient
 └──────────────┬───────────────┘
                ▼
 ┌──────────────────────────────┐
@@ -88,9 +88,9 @@ Record the answer (and any override) in brief.md's Decision Log.
 
 Ask **one** question at a time. With every question:
 
-1. Provide your recommended answer.
-2. Offer the user three reactions: `Confirm` / `Adjust` / `Let Claude
-   decide`.
+1. When the question has more than one plausible answer, list the
+   candidate options so the user can see the space.
+2. Provide your recommended answer with a short reason.
 
 Walk depth-first down the decision tree. Resolve dependencies before
 branching. Examples of good first questions:
@@ -124,12 +124,13 @@ contradiction by reading the relevant code:
 Stop the loop when **either**:
 
 - The user explicitly says "ready to spec" (or equivalent).
-- You have asked five consecutive questions where the user accepted your
-  recommendation without modification — that's the signal you understand
-  the domain well enough.
+- You judge that the current context is clear enough to write the spec —
+  Problem, Scope, Non-Goals, Constraints, and Domain Language all have
+  concrete answers and no `[blocking-spec]` open questions remain.
 
-Do not auto-stop on the first few easy answers; saturation requires
-breadth across Problem, Scope, Non-Goals, Constraints.
+Do not stop on the first few easy answers; saturation requires breadth
+across Problem, Scope, Non-Goals, Constraints. Do not count rounds — a
+fast-converging conversation is fine; a slow one is also fine.
 
 ### Step 5 — Write brief.md
 
@@ -186,7 +187,7 @@ Do not invoke `/spec` yourself. The user decides when they're ready.
 | Symptom | Fix |
 |---|---|
 | You ask three questions in one message. | Split. One question, one recommendation. |
-| You wrote brief.md before five rounds of dialogue. | Erase and restart. Saturation must be earned. |
+| You wrote brief.md while Problem/Scope/Non-Goals are still vague. | Erase and restart. Saturation means concrete answers, not just answered questions. |
 | Your brief.md mentions specific libraries, classes, file paths. | Move those to the future spec.md or delete them. brief.md is business-level. |
 | You contradict CONTEXT.md without surfacing the conflict. | Re-read CONTEXT.md. Make the user resolve the tension. |
 | You write Open Questions and call yourself done. | Tag each Open Question `[blocking-spec]` or `[deferred-to-impl]`. Resolve all `[blocking-spec]` before exiting. |
