@@ -1,6 +1,6 @@
 ---
 name: slicespec-implement
-description: Stage 4 of SliceSpec. Executes one slice at a time via TDD with subagent dispatch (AFK) or direct main-session work (HITL), then runs spec-compliance and code-quality review subagents. Includes mechanical controller diff check.
+description: Stage 4 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-implement` (optionally with a slice id). Do NOT auto-trigger from keywords like "implement", "start coding", or "begin TDD" — this skill is user-gated. Executes one slice via TDD with subagent dispatch (AFK) or direct main-session work (HITL), then runs spec-compliance and code-quality review subagents. Includes mechanical controller diff check.
 ---
 
 # SliceSpec — Implement
@@ -14,7 +14,7 @@ with a controller-side `git diff` check.
 **Core principles:**
 
 1. **NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.** Iron rule. No
-   exceptions short of an explicit `/escape`.
+   exceptions short of an explicit `/slicespec-escape`.
 2. **Fresh subagent per AFK slice.** Subagents do not inherit session
    context. The controller crafts a self-contained prompt.
 3. **Two-stage review.** Spec compliance first (was this what was
@@ -27,17 +27,17 @@ TDD loop on slice <id>."
 
 ## When to Use
 
-Trigger this skill when:
+**Invocation rule:** Explicit-only. Runs when the user types
+`/slicespec-implement` (optionally with a slice id). Never auto-trigger
+from keyword inference; if the context fits, suggest the command and
+wait for the user to invoke it.
 
-- `slices.md` exists and at least one slice is `pending`.
-- The user wants to start, resume, or continue implementation.
+**Decline (and redirect) when:**
 
-Do **not** use this skill when:
-
-- All slices are `done`. Run `slicespec-verify` instead.
-- A slice is `escaped(open)`. Run `slicespec-escape` to resolve first.
-- `spec.md` or `slices.md` does not exist. Run the earlier stages
-  first; this skill has no shortcut path.
+- All slices are `done` → `/slicespec-verify`.
+- A slice is `escaped(open)` → `/slicespec-escape` to close it first.
+- `spec.md` or `slices.md` does not exist → go back to the earlier
+  stage. This skill has no shortcut path.
 
 ## Inputs
 

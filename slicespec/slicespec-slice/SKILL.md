@@ -1,6 +1,6 @@
 ---
 name: slicespec-slice
-description: Stage 3 of SliceSpec. Use after slicespec-spec. Breaks the spec into tracer-bullet vertical slices with HITL/AFK type, write_scope, do_not_touch, blocked_by, and test_strategy.
+description: Stage 3 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-slice`. Do NOT auto-trigger from keywords like "slice", "plan implementation", or "break it down" — this skill is user-gated. Breaks the spec into tracer-bullet vertical slices with HITL/AFK type, write_scope, do_not_touch, blocked_by, and test_strategy.
 ---
 
 # SliceSpec — Slice
@@ -19,16 +19,14 @@ into tracer-bullet slices."
 
 ## When to Use
 
-Trigger this skill when:
+**Invocation rule:** Explicit-only. Runs when the user types
+`/slicespec-slice`. Never auto-trigger from keyword inference; if the
+context fits, suggest the command and wait for the user to invoke it.
 
-- `spec.md` exists and the user wants to start implementing.
-- The user wants to re-slice after `/escape` substantially changed the
-  spec.
-- The user explicitly asks to plan implementation.
+**Decline (and redirect) when:**
 
-Do **not** use this skill when:
-
-- The spec is incomplete (still has `[blocking-spec]` open questions).
+- The spec is incomplete (still has `[blocking-spec]` open questions) —
+  `/slicespec-clarify` or `/slicespec-spec` first.
 - All slices for this change already exist and are not stale.
 
 ## Inputs

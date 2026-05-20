@@ -1,6 +1,6 @@
 ---
 name: slicespec-spec
-description: Stage 2 of SliceSpec. Use after slicespec-clarify (or when the user already knows the contract). Defines external behaviour via Requirements + Given/When/Then Scenarios with stable IDs.
+description: Stage 2 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-spec`. Do NOT auto-trigger from keywords like "spec", "requirements", or "scenarios" — this skill is user-gated. Defines external behaviour via Requirements + Given/When/Then Scenarios with stable IDs.
 ---
 
 # SliceSpec — Spec
@@ -18,18 +18,15 @@ contract."
 
 ## When to Use
 
-Trigger this skill when:
+**Invocation rule:** Explicit-only. Runs when the user types
+`/slicespec-spec`. Never auto-trigger from keyword inference; if the
+context fits, suggest the command and wait for the user to invoke it.
 
-- `brief.md` exists and the Decision Log shows the change-type requires a
-  spec (consult `shared/change-type-routing.md`).
-- The user wants to update an existing spec because of a contract change
-  (revisit existing spec via delta blocks).
-- `/escape` requires a mini-spec-update.
+**Decline (and redirect) when:**
 
-Do **not** use this skill when:
-
-- The change is a pure internal refactor.
-- `brief.md` still has open `[blocking-spec]` questions.
+- The change is a pure internal refactor (no external contract).
+- `brief.md` still has open `[blocking-spec]` questions —
+  `/slicespec-clarify` first.
 
 ## Inputs
 

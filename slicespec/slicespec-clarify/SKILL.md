@@ -1,6 +1,6 @@
 ---
 name: slicespec-clarify
-description: Stage 1 of SliceSpec. Use when the user needs to nail down the problem, scope, non-goals, and domain language for a new change before writing a spec.
+description: Stage 1 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-clarify`. Do NOT auto-trigger from keywords like "clarify", "scope", or "new feature" — this skill is user-gated. Scopes the problem, non-goals, and domain language for a new change before writing a spec.
 ---
 
 # SliceSpec — Clarify
@@ -16,19 +16,15 @@ before we touch any spec."
 
 ## When to Use
 
-Trigger this skill when:
+**Invocation rule:** Explicit-only. Runs when the user types
+`/slicespec-clarify`. Never auto-trigger from keyword inference; if the
+context fits, suggest the command and wait for the user to invoke it.
 
-- The user describes a problem but has not committed to a fixed scope.
-- The user wants to challenge an existing brief or spec ("are we still
-  solving the right thing?").
-- `/escape` governance has flagged the change for re-clarification.
+**Decline (and redirect) when:**
 
-Do **not** use this skill when:
-
-- The user has a fully-specified change and just wants to write the spec —
-  go to `slicespec-spec`.
-- The current task is bug triage without a behaviour change — skip to
-  `slicespec-implement`.
+- The user has a fully-specified change and just wants to write the spec
+  → `/slicespec-spec`.
+- The task is bug triage with no behaviour change → `/slicespec-implement`.
 
 ## Inputs
 

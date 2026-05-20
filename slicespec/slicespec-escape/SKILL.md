@@ -1,6 +1,6 @@
 ---
 name: slicespec-escape
-description: Stage 5 of SliceSpec. Use during slicespec-implement when continuing would freeze incorrect semantics, e.g. a Scenario is wrong, a missing external boundary, an interface that needs reshaping, or scope overflow. Pauses the slice, runs a mini-spec-update, resumes.
+description: Stage 5 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-escape`. Do NOT auto-trigger from keywords like "escape", "the spec is wrong", or "we need to change the contract" — this skill is user-gated. Pauses the in-flight slice, runs a mini-spec-update, resumes.
 ---
 
 # SliceSpec — Escape Hatch
@@ -14,36 +14,29 @@ what the slice estimated.
 The escape hatch is not a redo button. It is a paused, audited,
 mini-spec-update.
 
-**Core principle:** Without /escape, implementers silently shape
-behaviour through tests. The spec drifts. Next quarter, nobody knows
-which document is true. /escape forces the decision back to the
-contract layer where it belongs.
+**Core principle:** Without `/slicespec-escape`, implementers silently
+shape behaviour through tests. The spec drifts. Next quarter, nobody
+knows which document is true. `/slicespec-escape` forces the decision
+back to the contract layer where it belongs.
 
 **Announce at start:** "I'm using slicespec-escape to revise the
 contract for slice <slice-id>."
 
 ## When to Use
 
-Trigger this skill when, during `/implement`, any of the following is
-true:
+**Invocation rule:** Explicit-only. Runs when the user types
+`/slicespec-escape`. Never auto-trigger mid-`/slicespec-implement` even
+if a Scenario turns out wrong — surface the situation to the user and
+wait for them to invoke the command. The whole point of the escape
+hatch is that the human signs off on every contract change.
 
-- A Scenario in spec.md is wrong, ambiguous, or contradicts itself.
-- A test surfaces an externally observable edge case the spec did not
-  cover.
-- A refactor reveals a better external interface — different signature,
-  different error semantics, different data shape.
-- A bug fix would change externally observable behaviour.
-- The slice's `estimated_cycles` is being blown past and you need to
-  re-slice, narrow scope, or change approach.
-- The controller's diff check failed because the slice genuinely needs
-  to write outside its declared `write_scope`.
+**Decline (and redirect) when:**
 
-Do **not** use this skill when:
-
-- The bug is purely internal — fix it in the implementer (`/implement`).
-- The user wants to add an unrelated feature — that's a new change, run
-  `/clarify`.
-- The fix can be made without touching the spec — `/implement` is enough.
+- The bug is purely internal, no contract change → stay in
+  `/slicespec-implement`.
+- The user wants an unrelated feature → that's a new change,
+  `/slicespec-clarify`.
+- The fix needs no spec edit → `/slicespec-implement` is enough.
 
 ## Inputs
 

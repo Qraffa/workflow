@@ -83,9 +83,14 @@ directory (project- or user-level). The layout:
 ```
 
 Skill descriptions match what Claude Code expects: each `SKILL.md`
-has `name:` and `description:` frontmatter. Each skill is invoked by
-the user typing `/slicespec-clarify`, `/slicespec-spec`, etc., or by
-Claude detecting the trigger keywords in the description.
+has `name:` and `description:` frontmatter. **Every stage is
+explicit-invocation only.** A skill runs when, and only when, the user
+types its slash command (`/slicespec-clarify`, `/slicespec-spec`,
+`/slicespec-slice`, `/slicespec-implement`, `/slicespec-escape`,
+`/slicespec-verify`). Claude must not auto-trigger any stage from
+keyword inference — even when the conversation obviously fits.
+If a fitting situation arises, Claude should suggest the relevant
+command and wait for the user to invoke it.
 
 ## Reading order
 

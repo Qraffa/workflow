@@ -1,6 +1,6 @@
 ---
 name: slicespec-verify
-description: Final stage of SliceSpec. Validates Spec/Test/Code semantic alignment via the V1-V10 checklist, runs governance thresholds, executes the test suite, syncs delta specs into specs/<capability>/spec.md, and archives the change.
+description: Final stage of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-verify`. Do NOT auto-trigger from keywords like "verify", "archive", or "wrap up" — this skill is user-gated. Validates Spec/Test/Code semantic alignment via the V1-V10 checklist, runs governance thresholds, executes the test suite, syncs delta specs into specs/<capability>/spec.md, and archives the change.
 ---
 
 # SliceSpec — Verify
@@ -21,19 +21,17 @@ change before archive."
 
 ## When to Use
 
-Trigger this skill when:
+**Invocation rule:** Explicit-only. Runs when the user (or a CI
+pipeline) types `/slicespec-verify`. Never auto-trigger as a
+side-effect of `/slicespec-implement` completing, or from keyword
+inference. If the context fits, suggest the command and wait.
 
-- Every slice in slices.md is `done` or `escaped(closed)`.
-- The user wants a pre-PR sanity check (no archive yet).
-- The user wants to archive several completed changes at once
-  ("archive all completed changes").
-- CI is running and needs an exit code.
+**Decline (and redirect) when:**
 
-Do **not** use this skill when:
-
-- A slice is still `in_progress`, `blocked`, or `escaped(open)`. Fix
-  those first.
-- A `resolution_pending: yes` escape entry exists. Close it first.
+- A slice is still `in_progress`, `blocked`, or `escaped(open)` → fix
+  it (`/slicespec-implement` or `/slicespec-escape`) first.
+- A `resolution_pending: yes` entry exists in `escapes.log` → close
+  it via `/slicespec-escape` first.
 
 ## Inputs
 
