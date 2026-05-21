@@ -1,15 +1,15 @@
 ---
 name: slicespec-implement
-description: Stage 4 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-implement` (optionally with a slice id). Do NOT auto-trigger from keywords like "implement", "start coding", or "begin TDD" — this skill is user-gated. Executes one slice via TDD in the main session, runs spec-compliance and code-quality reviews, and verifies write_scope mechanically with a `git diff` check. Subagent dispatch is opt-in only (see `subagent-mode.md`).
+description: Stage 4 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-implement` (optionally with a slice id). Do NOT auto-trigger from keywords like "implement", "start coding", or "begin TDD" — this skill is user-gated. Executes one slice via TDD in the main session, then dispatches spec-compliance and code-quality reviewers as fresh subagents (default), and verifies write_scope mechanically with a `git diff` check. Implementer subagent dispatch and parallel worktrees are opt-in (see `subagent-mode.md`).
 ---
 
 # SliceSpec — Implement
 
 Implement one slice at a time using strict TDD (Red → Green →
-Refactor) in the **main session**. After every slice, run a
-two-stage self-review (spec compliance, then code quality) using
-the reviewer prompts as checklists, and verify `write_scope`
-mechanically with a `git diff` check.
+Refactor) in the **main session**. After every slice, dispatch a
+two-stage review (spec compliance, then code quality) as **fresh
+subagents** for independence from the implementer's context, and
+verify `write_scope` mechanically with a `git diff` check.
 
 **Core principles:**
 
@@ -20,10 +20,13 @@ mechanically with a `git diff` check.
    horizontal-slicing anti-pattern, refactor candidates, naming —
    all live there as the single source of truth. The implementer
    applies the §8 pre-flight checklist before every test; the
-   quality review grades violations against the same file. Anything
-   not in `test-rules.md` is not a test rule.
-3. **Two-stage review.** Spec compliance first (was this what was
-   asked?), then code quality (is it well built?).
+   quality reviewer grades violations against the same file.
+   Anything not in `test-rules.md` is not a test rule.
+3. **Two-stage review, independent by construction.** Spec
+   compliance first (was this what was asked?), then code quality
+   (is it well built?). Both reviewers run as fresh subagents by
+   default — the implementer's context (you, the controller) is
+   not the right place to audit the implementer's output.
 4. **Scope validated mechanically.** Self-reports about "I didn't
    touch X" are not trusted. `git diff` is.
 
@@ -202,34 +205,51 @@ If any path fails either check:
 didn't touch X" is not. See `controller-diff-check.md` for the
 exact algorithm.
 
-### Step 4 — Spec compliance review
+### Step 4 — Spec compliance review (fresh subagent)
 
-Read `spec-reviewer-prompt.md` and use it as your **self-review
-checklist**. Verify:
+Dispatch a fresh subagent using `spec-reviewer-prompt.md` as the
+prompt body. Substitute every `<...>` placeholder before
+dispatching:
 
-- All `covers` Scenarios are exercised by at least one test that
-  references the Scenario ID.
+- `<slice-id>`, `<change-id>`, `<worktree>` absolute path
+- `<base-sha>` (recorded when slice moved to `in_progress`),
+  `<head-sha>` (current HEAD)
+- Every Scenario in the slice's `covers`, pasted verbatim from
+  `spec.md` (the subagent does NOT read the change directory)
+- The implementer's report as a HINT
+
+The subagent reads `test-rules.md` and the diff itself; it does
+not trust prior narration. It must verify:
+
+- All `covers` Scenarios are exercised by a test that references
+  the Scenario ID.
 - No missing Scenarios were skipped.
 - No extra observable behaviour was introduced beyond the spec.
 
 Outcome:
 
-- `approved` — all Scenarios covered, nothing extra.
+- `approved` — proceed to step 5.
 - `issues_found` — list issues with file:line refs. Return to step
-  2 (TDD) to fix the specific items, then re-review. Maximum three
-  iterations — if the third still fails, mark the slice
-  `blocked(spec-review)` and ask the user to intervene.
+  2 (TDD) to fix the specific items, then re-dispatch the reviewer
+  with the updated `<head-sha>`. **Maximum three iterations** — if
+  the third still fails, mark the slice `blocked(spec-review)` and
+  ask the user to intervene.
 
-### Step 5 — Code quality review
+Never silently re-dispatch the same prompt after `issues_found` —
+the head SHA must advance.
 
-Only after spec compliance is `approved`, read
-`quality-reviewer-prompt.md` and use it as your **self-review
-checklist**. The reviewer grades violations against the same
-`test-rules.md` clauses the implementer used in §8 pre-flight,
-plus the audit-only checks that need post-hoc evidence
-(commit-shape detection of horizontal slicing and
-refactor-while-RED, dead-test detection, rationalisation
-signals).
+### Step 5 — Code quality review (fresh subagent)
+
+Only after spec compliance is `approved`, dispatch a fresh
+subagent using `quality-reviewer-prompt.md` as the prompt body.
+Substitute the same placeholders as Step 4 (`<slice-id>`,
+`<change-id>`, `<worktree>`, `<base-sha>`, `<head-sha>`).
+
+The subagent grades violations against the same `test-rules.md`
+clauses the implementer used in §8 pre-flight, plus the
+audit-only checks that need post-hoc evidence (commit-shape
+detection of horizontal slicing and refactor-while-RED, dead-test
+detection, rationalisation signals).
 
 Outcome:
 
@@ -238,11 +258,13 @@ Outcome:
   `shared/governance-thresholds.md`) — fix Critical unconditionally;
   Warning can be `accepted_with_risk` with a written justification
   recorded in state.json's `reviews[]` array; Info is noted only.
+  Return to step 2, then re-dispatch with the updated `<head-sha>`.
 
-Maximum three iterations. A finding that cites a `test-rules.md`
-clause is rework that should have been prevented by §8 pre-flight;
-treat it as a signal to slow down on the next test, not just a
-ticket to fix.
+**Maximum three iterations.** If the third still fails, mark the
+slice `blocked(quality-review)` and ask the user. A finding that
+cites a `test-rules.md` clause is rework that should have been
+prevented by §8 pre-flight; treat it as a signal to slow down on
+the next test, not just a ticket to fix.
 
 ### Step 6 — Mark slice done
 
@@ -288,19 +310,24 @@ asked. Only stop when:
 
 ## Subagent mode (opt-in)
 
-By default, this skill runs entirely in the main session. Subagent
-dispatch is **optional** and only activates when the user's
-invocation contains an explicit opt-in keyword such as `subagent`,
-`子agent`, `dispatch`, `并发`, `parallel`, or `worktree`.
+By default, the **implementer runs in the main session** and the
+**two reviewers run as fresh subagents** (steps 4 and 5).
+"Subagent mode" refers to the *additional* opt-in that also moves
+the implementer into a subagent — typically to enable parallel
+worktrees across multiple AFK slices.
+
+It activates only when the user's invocation contains an explicit
+opt-in keyword such as `subagent`, `子agent`, `dispatch`, `并发`,
+`parallel`, or `worktree`.
 
 Example trigger: `/slicespec-implement 使用子agent并发实现任务1，2`.
 
 When (and only when) such a trigger is present, read
 [`subagent-mode.md`](subagent-mode.md) before proceeding. That file
-defines the dispatch protocol, parallel-worktree mechanics, the
-HITL→AFK downgrade rule, and how reviewers may be dispatched as
-fresh subagents for independence. Do not load that file on a
-plain `/slicespec-implement` call.
+defines the implementer dispatch protocol, parallel-worktree
+mechanics, and the HITL→AFK downgrade rule. Do not load that file
+on a plain `/slicespec-implement` call — the default reviewer
+dispatch is already specified in steps 4 and 5 above.
 
 ## Iron rules (no exceptions without /escape)
 
@@ -336,18 +363,20 @@ change is not ready for implementation.
   (clause-cited grading) operate from this file. No other file
   may restate its rules.**
 - `implementer-prompt.md` — TDD cycle mechanics (hard rules,
-  stuck-escalation, self-review, report format). Also usable as a
+  stuck-escalation, pre-report self-check, report format). Drives
+  the main-session implementer by default; also usable as a
   subagent prompt in subagent mode.
-- `spec-reviewer-prompt.md` — spec compliance rubric. Used as a
-  self-review checklist by default; usable as a subagent prompt in
-  subagent mode.
-- `quality-reviewer-prompt.md` — code quality grading (severity,
-  audit-only detection, report format). Cites `test-rules.md`
+- `spec-reviewer-prompt.md` — fresh-subagent prompt body for
+  Step 4. Dispatched by default every slice.
+- `quality-reviewer-prompt.md` — fresh-subagent prompt body for
+  Step 5. Dispatched by default every slice. Cites `test-rules.md`
   clauses for every test-rule finding.
 - `controller-diff-check.md` — exact algorithm for the mechanical
   diff check.
-- `subagent-mode.md` — opt-in subagent dispatch protocol. Read
-  ONLY when the user triggers it (see "Subagent mode" above).
+- `subagent-mode.md` — opt-in protocol for moving the *implementer*
+  into a subagent (e.g. parallel worktrees). Read ONLY when the
+  user triggers it (see "Subagent mode" above). Reviewer dispatch
+  is already default and does not require this file.
 
 ## Related skills
 

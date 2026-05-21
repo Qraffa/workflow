@@ -1,9 +1,14 @@
-# Subagent Mode (opt-in)
+# Subagent Mode (opt-in) — implementer dispatch & parallel worktrees
 
 This guide is **only loaded** when the user explicitly opts into
-subagent execution. The default mode of `slicespec-implement` is
-main-session, single-threaded. Do not read or apply anything below
-unless the trigger conditions in §1 are met.
+moving the implementer into a subagent (typically to run multiple
+AFK slices in parallel worktrees). Do not read or apply anything
+below unless the trigger conditions in §1 are met.
+
+**Out of scope for this file:** reviewer dispatch (steps 4 and 5
+of `SKILL.md`). Reviewers run as fresh subagents *by default* on
+every slice — that protocol lives in `SKILL.md` steps 4 and 5 and
+is not gated by anything here.
 
 ## 1. Trigger conditions
 
@@ -42,11 +47,10 @@ applies unchanged:
 - Step 2 (TDD cycles) — **replaced** by §4 dispatch protocol.
 - Step 3 (Controller diff check) — same. ALWAYS run in main session.
   Subagent self-reports of "I did not touch X" are never trusted.
-- Step 4 (Spec compliance review) — by default, main session uses
-  `spec-reviewer-prompt.md` as a self-review checklist. In subagent
-  mode, it MAY be dispatched as a fresh subagent (§5) for
-  independence, but this is optional.
-- Step 5 (Code quality review) — same dual-mode treatment.
+- Step 4 (Spec compliance review) — same as default flow: fresh
+  subagent dispatch. No change in subagent mode.
+- Step 5 (Code quality review) — same as default flow: fresh
+  subagent dispatch. No change in subagent mode.
 - Step 6 (Mark done) — same.
 - Step 7 (Loop) — same.
 
@@ -131,34 +135,7 @@ Wait for the report.
   - Never silently re-dispatch the same prompt.
 - `NEEDS_CONTEXT` → provide missing context, re-dispatch.
 
-## 5. Reviewer dispatch (optional)
-
-By default, the main session runs spec compliance and code quality
-reviews itself, using `spec-reviewer-prompt.md` and
-`quality-reviewer-prompt.md` as checklists. This is normally
-sufficient.
-
-In subagent mode, the controller MAY dispatch reviewers as fresh
-subagents to gain implementation-independent reads. This is
-**recommended** whenever the implementer was a subagent (since the
-controller already lives in a different context, the additional
-isolation cost is small and the auditor independence is genuine).
-
-If dispatched:
-
-- Spec reviewer: use `spec-reviewer-prompt.md` verbatim.
-- Quality reviewer: use `quality-reviewer-prompt.md` verbatim.
-- Reviewers must be FRESH subagents — they do not inherit the
-  implementer's context.
-- Iterate up to 3 times if `issues_found`. On the third failure,
-  mark the slice `blocked(spec-review)` or `blocked(quality-review)`
-  and ask the user.
-
-For HITL slices implemented in main session, dispatching reviewers
-as subagents is still allowed — it keeps the read independent of
-the implementer (you, the controller).
-
-## 6. Parallel dispatch (worktrees)
+## 5. Parallel dispatch (worktrees)
 
 Only attempt parallel dispatch when the user explicitly asks (e.g.
 "并发", "parallel"). Even then, the candidate slices must pass
@@ -189,7 +166,7 @@ If any parallel slice ends `blocked` due to scope violation, do NOT
 merge that worktree. Trigger `/escape` if needed; leave the
 worktree in place until the escape is resolved.
 
-## 7. Iron rules specific to subagent mode
+## 6. Iron rules specific to subagent mode
 
 - Subagent self-reports about scope ("I did not touch X") are NOT
   trusted. The controller's `git diff` check is authoritative.
@@ -200,7 +177,7 @@ worktree in place until the escape is resolved.
 - The controller never delegates conflict resolution, scope
   decisions, or escape-tag selection to a subagent.
 
-## 8. Exiting subagent mode
+## 7. Exiting subagent mode
 
 After all slices the user asked to be dispatched are `done` (or
 blocked), return to the default behaviour. If subsequent slices in

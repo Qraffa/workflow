@@ -147,10 +147,12 @@ Agent tool:
     Report status `BLOCKED` (with sub-reason) or `NEEDS_CONTEXT`. The
     controller will route you to /escape or supply more context.
 
-    ## Before reporting back: self-review
+    ## Before reporting back: pre-report self-check
 
-    Fresh eyes. Answer each question. If any is "no" or
-    "I'm not sure", fix the issue before reporting.
+    This is your own pre-delivery check — not the spec/quality
+    reviewer pass (those are fresh subagents the controller
+    dispatches after step 3). Fresh eyes. Answer each question. If
+    any is "no" or "I'm not sure", fix the issue before reporting.
 
     Completeness:
     - Did I exercise every Scenario in `covers`?
@@ -176,8 +178,9 @@ Agent tool:
     - Would it survive a pure internal refactor and still catch a
       real behaviour break? (§1)
 
-    Fix issues now. Do not pass them downstream. A review finding
-    against `test-rules.md` means you skipped this self-review.
+    Fix issues now. Do not pass them downstream. A reviewer
+    finding against `test-rules.md` means you skipped this
+    pre-report check.
 
     ## Report format
 
@@ -191,11 +194,11 @@ Agent tool:
     - **Commits**: <SHAs>
     - **Pre-flight confirmation**: "applied `test-rules.md` §8 to
       every test" (mandatory; do not omit).
-    - **Self-review findings**: <any concerns>
+    - **Pre-report check findings**: <any concerns>
     - **Reason for status** (if not DONE): <free text>
 
     Status meanings:
-    - DONE — all Scenarios covered, self-review clean.
+    - DONE — all Scenarios covered, pre-report check clean.
     - DONE_WITH_CONCERNS — work complete but you have doubts (note them).
     - BLOCKED — you cannot finish. Sub-reasons:
         BLOCKED(needs-hitl-decision)

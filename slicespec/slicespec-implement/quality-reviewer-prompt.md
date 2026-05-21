@@ -1,14 +1,10 @@
 # Code Quality Reviewer Prompt
 
-Use this file in two modes:
-
-- **Default (main-session self-review):** apply the audit lens
-  below to your own implementation.
-- **Subagent mode (opt-in, see `subagent-mode.md`):** wrap the
-  prompt body in the `Agent` tool block and dispatch as a fresh
-  subagent.
-
-Run ONLY after spec compliance review returns `approved`.
+**This file is a fresh-subagent prompt template.** The controller
+(main session) dispatches it by default at Step 5 of `SKILL.md`,
+after spec compliance review returns `approved`. The body below
+substitutes the `<...>` placeholders and is wrapped in an `Agent`
+tool block.
 
 The rules for what makes a test good/bad, what mocks are
 licensed, and what counts as horizontal slicing live in

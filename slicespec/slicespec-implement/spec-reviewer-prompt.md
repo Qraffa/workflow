@@ -1,19 +1,15 @@
 # Spec Compliance Reviewer Prompt
 
-Use this file in two modes:
+**This file is a fresh-subagent prompt template.** The controller
+(main session) dispatches it by default at Step 4 of
+`SKILL.md` — independence from the implementer's context is the
+whole point. The body below substitutes the `<...>` placeholders
+and is wrapped in an `Agent` tool block.
 
-- **Default (main-session self-review):** read the checklist below
-  and apply it to your own implementation. The reviewer's discipline
-  ("read the code, don't trust narration") still applies — switch
-  to auditor mindset, re-derive everything from the diff.
-- **Subagent mode (opt-in, see `subagent-mode.md`):** wrap the
-  prompt body in the `Agent` tool block and dispatch as a fresh
-  subagent for genuinely independent context.
-
-The reviewer's job either way: verify the implementation exercises
-every Scenario the slice promised to cover and does NOT introduce
-externally-observable behaviour the spec did not declare. Read code;
-never trust prior reports.
+The reviewer's job: verify the implementation exercises every
+Scenario the slice promised to cover and does NOT introduce
+externally-observable behaviour the spec did not declare. Read
+code; never trust prior reports.
 
 ```
 Agent tool:
