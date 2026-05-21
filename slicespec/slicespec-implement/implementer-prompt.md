@@ -13,7 +13,8 @@ Use this file in two modes:
   subagent. The controller fills every `<...>` placeholder with
   actual content; the subagent does NOT read source files of the
   SliceSpec change directory — all relevant slices.md / spec.md
-  content is pasted into the prompt.
+  content is pasted into the prompt. The one exception is
+  `test-rules.md`, which the subagent MUST open at start.
 
 ```
 Agent tool:
@@ -25,6 +26,18 @@ Agent tool:
     You are implementing slice <slice-id>: <title>
     Change: <change-id>
     Worktree: <absolute path>
+
+    ## MANDATORY first read
+
+    Open and internalise `test-rules.md` (sibling file in this
+    skill directory) BEFORE writing any test. It is the single
+    source of truth for what a good test, a bad test, and a
+    licensed mock look like, and what the horizontal-slicing
+    anti-pattern is. Every test you write must pass the §8
+    pre-flight checklist in that file.
+
+    Do not paraphrase or re-derive those rules in this prompt.
+    Just apply them.
 
     ## Slice (from slices.md)
 
@@ -83,54 +96,38 @@ Agent tool:
     6. **One commit per Red→Green→Refactor cycle.**
        Commit messages end with `[<slice-id>]`.
 
+    7. **Test / mock / anti-pattern rules come from `test-rules.md`.**
+       Apply §8 pre-flight before every test. Failing review on
+       anything covered there means you skipped the pre-flight.
+
     ## TDD cycle (run until every Scenario in `covers` is exercised)
 
-    **Anti-pattern — DO NOT DO THIS:** Writing all the Scenario tests
-    first ("RED = write every test"), then implementing all of them
-    ("GREEN = write all the code"). This is *horizontal slicing* and
-    it produces crap tests: you end up verifying *imagined* behaviour
-    and the *shape* of data, not what users actually need. Such tests
-    pass when behaviour breaks and break when behaviour is fine.
-
-    The correct shape is *vertical*: one test → one impl → one
-    commit → next test. Each cycle is shaped by what the previous
-    one taught you about the design. Even if `covers` lists five
-    Scenarios, run five small cycles — not one big batch.
+    Vertical, not horizontal. Even when `covers` lists many
+    Scenarios, run them as small Red→Green cycles — one per
+    behaviour. Never batch all the tests then all the impl
+    (see `test-rules.md` §5).
 
     RED:
+      - Apply `test-rules.md` §8 pre-flight to the test you are
+        about to write.
       - Write ONE test for ONE behaviour from ONE Scenario.
-      - Test through the PUBLIC interface — not via internal
-        collaborators, not by inspecting private state, and not by
-        side-channels like raw DB queries.
-      - Reference the Scenario ID per the form rules.
-      - Run the test. Verify it fails because the feature is missing —
-        not because of a typo.
+      - Reference the Scenario ID per Hard rule 5.
+      - Run the test. Verify it fails because the feature is
+        missing — not because of a typo.
 
     GREEN:
       - Write the MINIMUM code to make the test pass.
       - No speculative interfaces. No extra parameters "for later".
         No unrequested features.
-      - Mock only at system boundaries: external APIs, databases
-        you don't own, time/randomness, the filesystem. NEVER mock
-        modules you own, internal collaborators, or the system under
-        test itself (mocking the SUT is a Critical defect — your test
-        proves nothing).
+      - Mocks only at boundaries listed in `test-rules.md` §4.
       - Run the test. Verify it passes.
       - Run the module's wider tests. Verify no regressions.
 
     REFACTOR:
-      - Only when GREEN. Never restructure with a failing test in
-        the suite — the green bar is what tells you the change was
-        safe.
-      - Improve names, extract helpers, reduce duplication.
-      - Consider whether the new code revealed a deeper module
-        opportunity: small interface, thick implementation. Avoid
-        shallow wrappers that just pass through.
-      - Refactor candidates worth looking for after each cycle:
-        duplication → extract; long method → private helpers;
-        shallow module → deepen or combine; feature envy → move
-        logic to where the data lives; primitive obsession → value
-        object; existing code the new code revealed as problematic.
+      - Only when GREEN.
+      - Scan for refactor candidates per `test-rules.md` §6
+        (duplication, shallow modules, feature envy, primitive
+        obsession, etc.).
       - Do not change behaviour. Tests must remain green throughout.
 
     COMMIT:
@@ -152,7 +149,8 @@ Agent tool:
 
     ## Before reporting back: self-review
 
-    Fresh eyes. Ask yourself:
+    Fresh eyes. Answer each question. If any is "no" or
+    "I'm not sure", fix the issue before reporting.
 
     Completeness:
     - Did I exercise every Scenario in `covers`?
@@ -163,23 +161,23 @@ Agent tool:
     - Did I write code before a failing test at any point?
     - Did I refactor while RED?
     - Did I touch a file outside write_scope or inside do_not_touch?
-    - Did I run small vertical cycles, or did I batch all the tests
-      first and then all the impl? (The latter is horizontal slicing
-      — undo and redo.)
+    - Did I run small vertical cycles, or did I batch tests then
+      impl? (The latter violates `test-rules.md` §5 — undo and redo.)
 
-    Tests:
-    - Do they verify behaviour through the public interface, or do
-      they reach into internals (private methods, raw DB queries,
-      asserting on call counts of internal collaborators)?
-    - Would they survive a pure refactor that changes structure but
-      not behaviour? If renaming an internal helper would break a
-      test, that test is wrong.
-    - Are mocks limited to system boundaries (external APIs, the
-      database, time/randomness, filesystem)? Any mock of code I
-      own — or of the SUT — must be removed.
-    - Do they reference Scenario IDs correctly?
+    Tests — for every test I wrote, does it pass the
+    `test-rules.md` §8 pre-flight (all five questions)?
+    Specifically:
+    - Public interface only? (§1, §2)
+    - No internal mocks, no private inspection, no raw DB
+      verification? (§3.a, §3.b)
+    - Mocks (if any) only at §4 boundaries? No mock of code I own?
+      No mock of the SUT?
+    - Name describes WHAT, not HOW? (§7)
+    - Would it survive a pure internal refactor and still catch a
+      real behaviour break? (§1)
 
-    Fix issues now. Do not pass them downstream.
+    Fix issues now. Do not pass them downstream. A review finding
+    against `test-rules.md` means you skipped this self-review.
 
     ## Report format
 
@@ -191,6 +189,8 @@ Agent tool:
     - **Tests run**: <commands and results>
     - **Files modified**: <list, with line counts>
     - **Commits**: <SHAs>
+    - **Pre-flight confirmation**: "applied `test-rules.md` §8 to
+      every test" (mandatory; do not omit).
     - **Self-review findings**: <any concerns>
     - **Reason for status** (if not DONE): <free text>
 

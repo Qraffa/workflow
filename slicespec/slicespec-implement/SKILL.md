@@ -15,27 +15,24 @@ mechanically with a `git diff` check.
 
 1. **NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.** Iron rule.
    No exceptions short of an explicit `/slicespec-escape`.
-2. **Tests verify behaviour through public interfaces.** Not
-   internal collaborators, not private methods, not by side-channels
-   like raw DB queries. A test that breaks on a pure refactor was
-   the wrong test. (Good/Bad test contract lives in
-   `quality-reviewer-prompt.md`.)
-3. **Vertical, never horizontal.** ONE test → ONE impl → repeat.
-   Never write all Scenario tests up front then implement in bulk —
-   that produces tests of imagined behaviour. Each cycle is
-   informed by what you just learned.
-4. **Mock only at system boundaries.** External APIs, DBs, time,
-   randomness, filesystem. Never mock code you own or the SUT
-   itself.
-5. **Two-stage review.** Spec compliance first (was this what was
+2. **Test rules come from `test-rules.md` — read it before writing
+   any test.** Good/Bad test shapes, the mock boundary, the
+   horizontal-slicing anti-pattern, refactor candidates, naming —
+   all live there as the single source of truth. The implementer
+   applies the §8 pre-flight checklist before every test; the
+   quality review grades violations against the same file. Anything
+   not in `test-rules.md` is not a test rule.
+3. **Two-stage review.** Spec compliance first (was this what was
    asked?), then code quality (is it well built?).
-6. **Scope validated mechanically.** Self-reports about "I didn't
+4. **Scope validated mechanically.** Self-reports about "I didn't
    touch X" are not trusted. `git diff` is.
 
-Principles 2–4 are the TDD essence inherited from the Pocock TDD
-discipline. The full rationale, examples, and reviewer rubric live
-in `implementer-prompt.md` and `quality-reviewer-prompt.md` — they
-are not repeated here to keep this skill thin.
+The TDD essence (Pocock-style discipline: behaviour over
+implementation, vertical cycles, mock at the boundary) lives in
+`test-rules.md`. The TDD cycle mechanics live in
+`implementer-prompt.md`. Reviewer grading lives in
+`quality-reviewer-prompt.md`. This file describes the slice
+workflow that wraps them.
 
 **Announce at start:** "I'm using slicespec-implement to drive the
 TDD loop on slice <id>."
@@ -121,54 +118,47 @@ In both cases the work runs in the main session by default.
 
 ### Step 2 — TDD cycles
 
-Every cycle must execute:
+**Before writing any test in this slice, read `test-rules.md`
+end-to-end.** It is the source of truth for test/mock/anti-pattern
+rules. Apply the §8 pre-flight checklist to every test you write.
+Findings in step 5 (quality review) that cite a `test-rules.md`
+clause indicate the pre-flight was skipped — they are avoidable
+rework.
+
+Every cycle executes the standard shape:
 
 ```
-RED
-  ├─ Write a test for ONE behaviour from one Scenario.
-  ├─ Verify behaviour through the PUBLIC interface (no internal
-  │  mocks, no raw DB / private-state inspection).
-  ├─ Reference the Scenario ID using one of the three permitted
-  │  forms (see shared/scenario-id-rules.md).
-  └─ Run it. Verify it fails for the RIGHT reason (feature missing,
-     not typo).
+RED      → Apply test-rules.md §8 pre-flight, write ONE test
+            for ONE behaviour from ONE Scenario, reference the
+            Scenario ID (see shared/scenario-id-rules.md), run it,
+            verify it fails for the RIGHT reason.
 
-GREEN
-  ├─ Write the minimum code to make the test pass.
-  ├─ No speculative interfaces. No extra features. No "while I'm
-  │  here".
-  ├─ Mock only at system boundaries (external APIs, DB,
-  │  time/random, filesystem). Never mock code you own or the SUT.
-  └─ Run the test. Verify it passes. Run the whole module's tests.
-     Verify no regressions.
+GREEN    → Minimum code to pass. No speculative interfaces, no
+            unrequested features. Mocks only at test-rules.md §4
+            boundaries. Run the module's wider tests; verify no
+            regressions.
 
-REFACTOR
-  ├─ Only when GREEN.
-  ├─ Improve names, extract helpers, reduce duplication. Watch for
-  │  shallow modules to deepen, feature envy to relocate, primitive
-  │  obsession to absorb into value objects.
-  ├─ Never modify behaviour during refactor.
-  └─ Run tests after every meaningful change.
+REFACTOR → Only when GREEN. Scan for test-rules.md §6 candidates
+            (duplication, shallow modules, feature envy, primitive
+            obsession). Never modify behaviour. Tests must remain
+            green throughout.
 
-COMMIT
-  └─ One commit per cycle (often Red+Green+Refactor in one commit;
-     larger refactors get their own commit). Message format: short
-     present-tense sentence ending with `[<slice-id>]`.
+COMMIT   → One commit per cycle. Short present-tense message
+            ending with `[<slice-id>]`.
 ```
 
 **Vertical cycles, never horizontal.** Even when `covers` lists
-many Scenarios, run them as small Red→Green cycles, one per
-behaviour. Do NOT batch all the Scenario tests first and implement
-them after — that produces tests of imagined behaviour, not real
-behaviour, and is a Critical defect detected by the quality review.
+many Scenarios, run them as small Red→Green cycles — one per
+behaviour. The horizontal-slicing anti-pattern (all tests first,
+then all impl) is defined and forbidden in `test-rules.md` §5; it
+is a Critical defect the quality review detects from the commit
+log.
 
 Iterate until all Scenarios in `covers` are exercised. Then
 proceed to step 3.
 
-For the detailed TDD discipline (anti-patterns, mock rules,
-self-review checklist, refactor candidates) read
-`implementer-prompt.md`. The prompt template is the source of
-truth for what a correct cycle looks like.
+For cycle execution detail (hard rules, stuck-escalation, report
+format, self-review) read `implementer-prompt.md`.
 
 Refactor boundary rules:
 
@@ -234,14 +224,12 @@ Outcome:
 
 Only after spec compliance is `approved`, read
 `quality-reviewer-prompt.md` and use it as your **self-review
-checklist**. Verify:
-
-- Tests verify behaviour through public interfaces (no
-  over-mocking internal collaborators).
-- No speculative code, dead code, or over-abstraction.
-- No refactor performed while RED.
-- File responsibilities are clear; no accidental dumping ground.
-- Names match what things do, not how they work.
+checklist**. The reviewer grades violations against the same
+`test-rules.md` clauses the implementer used in §8 pre-flight,
+plus the audit-only checks that need post-hoc evidence
+(commit-shape detection of horizontal slicing and
+refactor-while-RED, dead-test detection, rationalisation
+signals).
 
 Outcome:
 
@@ -251,7 +239,10 @@ Outcome:
   Warning can be `accepted_with_risk` with a written justification
   recorded in state.json's `reviews[]` array; Info is noted only.
 
-Maximum three iterations.
+Maximum three iterations. A finding that cites a `test-rules.md`
+clause is rework that should have been prevented by §8 pre-flight;
+treat it as a signal to slow down on the next test, not just a
+ticket to fix.
 
 ### Step 6 — Mark slice done
 
@@ -315,6 +306,7 @@ plain `/slicespec-implement` call.
 
 - No production code without a failing test first.
 - No refactor while RED.
+- No skipping `test-rules.md` §8 pre-flight on any test.
 - No widening of `write_scope` mid-slice without /escape.
 - No silent test deletion. Deleted tests must be replaced or
   documented in evidence/.
@@ -338,15 +330,20 @@ change is not ready for implementation.
 
 ## Templates and references
 
-- `implementer-prompt.md` — TDD discipline (anti-patterns, mock
-  rules, refactor candidates, self-review). Source of truth for
-  cycle execution. Also usable as a subagent prompt in subagent
-  mode.
+- **`test-rules.md` — single source of truth for test / mock /
+  anti-pattern rules. MANDATORY read before writing any test.
+  Both implementer (§8 pre-flight) and quality reviewer
+  (clause-cited grading) operate from this file. No other file
+  may restate its rules.**
+- `implementer-prompt.md` — TDD cycle mechanics (hard rules,
+  stuck-escalation, self-review, report format). Also usable as a
+  subagent prompt in subagent mode.
 - `spec-reviewer-prompt.md` — spec compliance rubric. Used as a
   self-review checklist by default; usable as a subagent prompt in
   subagent mode.
-- `quality-reviewer-prompt.md` — code quality rubric. Same dual
-  use.
+- `quality-reviewer-prompt.md` — code quality grading (severity,
+  audit-only detection, report format). Cites `test-rules.md`
+  clauses for every test-rule finding.
 - `controller-diff-check.md` — exact algorithm for the mechanical
   diff check.
 - `subagent-mode.md` — opt-in subagent dispatch protocol. Read
