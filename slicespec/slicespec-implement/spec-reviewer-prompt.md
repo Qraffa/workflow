@@ -1,13 +1,19 @@
-# Spec Compliance Reviewer Subagent Prompt
+# Spec Compliance Reviewer Prompt
 
-Use this template when dispatching a spec-compliance reviewer subagent.
+Use this file in two modes:
 
-The reviewer's job is to verify the implementation exercises every
-Scenario the slice promised to cover and does NOT introduce externally-
-observable behaviour the spec did not declare.
+- **Default (main-session self-review):** read the checklist below
+  and apply it to your own implementation. The reviewer's discipline
+  ("read the code, don't trust narration") still applies — switch
+  to auditor mindset, re-derive everything from the diff.
+- **Subagent mode (opt-in, see `subagent-mode.md`):** wrap the
+  prompt body in the `Agent` tool block and dispatch as a fresh
+  subagent for genuinely independent context.
 
-Reviewer is a FRESH subagent. It does not see the implementer's
-context. Do not trust the implementer's report — read code.
+The reviewer's job either way: verify the implementation exercises
+every Scenario the slice promised to cover and does NOT introduce
+externally-observable behaviour the spec did not declare. Read code;
+never trust prior reports.
 
 ```
 Agent tool:

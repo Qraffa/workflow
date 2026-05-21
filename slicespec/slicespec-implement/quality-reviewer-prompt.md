@@ -1,14 +1,18 @@
-# Code Quality Reviewer Subagent Prompt
+# Code Quality Reviewer Prompt
 
-Use this template when dispatching a code-quality reviewer subagent.
-Run ONLY after spec compliance reviewer returns `approved`.
+Use this file in two modes:
 
-The reviewer's job is to verify the implementation is well built — not
-just that it passes tests, but that the tests test real behaviour and
-the code itself is maintainable.
+- **Default (main-session self-review):** read the checklist below
+  and apply it to your own implementation in auditor mindset.
+- **Subagent mode (opt-in, see `subagent-mode.md`):** wrap the
+  prompt body in the `Agent` tool block and dispatch as a fresh
+  subagent.
 
-Reviewer is a FRESH subagent and does not see the implementer's
-context.
+Run ONLY after the spec compliance review returns `approved`.
+
+The reviewer's job either way: verify the implementation is well
+built — not just that it passes tests, but that the tests test real
+behaviour and the code itself is maintainable.
 
 ```
 Agent tool:

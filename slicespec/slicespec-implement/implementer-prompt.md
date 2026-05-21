@@ -1,11 +1,19 @@
-# Implementer Subagent Prompt Template
+# Implementer Prompt / TDD Discipline
 
-Use this template when dispatching an implementer subagent from
-slicespec-implement (Mode A).
+Use this file in two modes:
 
-The controller fills every `<...>` placeholder with the actual content.
-Subagents do NOT read source files of the SliceSpec change directory —
-all relevant slices.md / spec.md content is pasted in below.
+- **Default (main-session implementation):** the body below is the
+  source-of-truth specification of a correct TDD cycle. Read it,
+  internalise the hard rules, then drive your own
+  Red→Green→Refactor cycles in the main session. The "Report
+  format" section becomes your slice-completion summary written
+  into evidence/.
+- **Subagent mode (opt-in, see `subagent-mode.md`):** wrap the
+  prompt body in the `Agent` tool block and dispatch as a fresh
+  subagent. The controller fills every `<...>` placeholder with
+  actual content; the subagent does NOT read source files of the
+  SliceSpec change directory — all relevant slices.md / spec.md
+  content is pasted into the prompt.
 
 ```
 Agent tool:
