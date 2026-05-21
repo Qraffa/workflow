@@ -15,12 +15,28 @@ with a controller-side `git diff` check.
 
 1. **NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.** Iron rule. No
    exceptions short of an explicit `/slicespec-escape`.
-2. **Fresh subagent per AFK slice.** Subagents do not inherit session
+2. **Tests verify behaviour through public interfaces.** Not internal
+   collaborators, not private methods, not by side-channels like raw
+   DB queries. A test that breaks on a pure refactor was the wrong
+   test. (Good/Bad test contract lives in
+   `quality-reviewer-prompt.md`.)
+3. **Vertical, never horizontal.** ONE test → ONE impl → repeat. Never
+   write all Scenario tests up front then implement in bulk — that
+   produces tests of imagined behaviour. Each cycle is informed by
+   what you just learned.
+4. **Mock only at system boundaries.** External APIs, DBs, time,
+   randomness, filesystem. Never mock code you own or the SUT itself.
+5. **Fresh subagent per AFK slice.** Subagents do not inherit session
    context. The controller crafts a self-contained prompt.
-3. **Two-stage review.** Spec compliance first (was this what was
+6. **Two-stage review.** Spec compliance first (was this what was
    asked?), then code quality (is it well built?).
-4. **Controller validates scope mechanically.** Subagent self-reports
+7. **Controller validates scope mechanically.** Subagent self-reports
    about "I didn't touch X" are not trusted. `git diff` is.
+
+Principles 2–4 are the TDD essence inherited from the Pocock TDD
+discipline. The full rationale, examples, and reviewer rubric live in
+`implementer-prompt.md` and `quality-reviewer-prompt.md` — they are
+not repeated here to keep this skill thin.
 
 **Announce at start:** "I'm using slicespec-implement to drive the
 TDD loop on slice <id>."
@@ -216,6 +232,8 @@ Whether subagent or main session, every cycle must execute:
 ```
 RED
   ├─ Write a test for ONE behaviour from one Scenario.
+  ├─ Verify behaviour through the PUBLIC interface (no internal mocks,
+  │  no raw DB / private-state inspection).
   ├─ Reference the Scenario ID using one of the three permitted forms.
   └─ Run it. Verify it fails for the RIGHT reason (feature missing, not
      typo).
@@ -223,12 +241,16 @@ RED
 GREEN
   ├─ Write the minimum code to make the test pass.
   ├─ No speculative interfaces. No extra features. No "while I'm here".
+  ├─ Mock only at system boundaries (external APIs, DB, time/random,
+  │  filesystem). Never mock code you own or the SUT.
   └─ Run the test. Verify it passes. Run the whole module's tests.
      Verify no regressions.
 
 REFACTOR
   ├─ Only when GREEN.
-  ├─ Improve names, extract helpers, reduce duplication.
+  ├─ Improve names, extract helpers, reduce duplication. Watch for
+  │  shallow modules to deepen, feature envy to relocate, primitive
+  │  obsession to absorb into value objects.
   ├─ Never modify behaviour during refactor.
   └─ Run tests after every meaningful change.
 
@@ -237,6 +259,12 @@ COMMIT
      larger refactors get their own commit). Message format: short
      present-tense sentence ending with `[<slice-id>]`.
 ```
+
+**Vertical cycles, never horizontal.** Even when `covers` lists many
+Scenarios, run them as small Red→Green cycles, one per behaviour. Do
+NOT batch all the Scenario tests first and implement them after —
+that produces tests of imagined behaviour, not real behaviour, and is
+a Critical defect detected by the quality reviewer.
 
 Iterate until all Scenarios in `covers` are exercised. Then proceed to
 step 4.

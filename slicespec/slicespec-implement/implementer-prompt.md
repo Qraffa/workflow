@@ -77,21 +77,52 @@ Agent tool:
 
     ## TDD cycle (run until every Scenario in `covers` is exercised)
 
+    **Anti-pattern — DO NOT DO THIS:** Writing all the Scenario tests
+    first ("RED = write every test"), then implementing all of them
+    ("GREEN = write all the code"). This is *horizontal slicing* and
+    it produces crap tests: you end up verifying *imagined* behaviour
+    and the *shape* of data, not what users actually need. Such tests
+    pass when behaviour breaks and break when behaviour is fine.
+
+    The correct shape is *vertical*: one test → one impl → one
+    commit → next test. Each cycle is shaped by what the previous
+    one taught you about the design. Even if `covers` lists five
+    Scenarios, run five small cycles — not one big batch.
+
     RED:
-      - Write one test for ONE behaviour from one Scenario.
+      - Write ONE test for ONE behaviour from ONE Scenario.
+      - Test through the PUBLIC interface — not via internal
+        collaborators, not by inspecting private state, and not by
+        side-channels like raw DB queries.
       - Reference the Scenario ID per the form rules.
       - Run the test. Verify it fails because the feature is missing —
         not because of a typo.
 
     GREEN:
       - Write the MINIMUM code to make the test pass.
-      - No speculative interfaces. No unrequested features.
+      - No speculative interfaces. No extra parameters "for later".
+        No unrequested features.
+      - Mock only at system boundaries: external APIs, databases
+        you don't own, time/randomness, the filesystem. NEVER mock
+        modules you own, internal collaborators, or the system under
+        test itself (mocking the SUT is a Critical defect — your test
+        proves nothing).
       - Run the test. Verify it passes.
       - Run the module's wider tests. Verify no regressions.
 
     REFACTOR:
-      - Only when GREEN.
+      - Only when GREEN. Never restructure with a failing test in
+        the suite — the green bar is what tells you the change was
+        safe.
       - Improve names, extract helpers, reduce duplication.
+      - Consider whether the new code revealed a deeper module
+        opportunity: small interface, thick implementation. Avoid
+        shallow wrappers that just pass through.
+      - Refactor candidates worth looking for after each cycle:
+        duplication → extract; long method → private helpers;
+        shallow module → deepen or combine; feature envy → move
+        logic to where the data lives; primitive obsession → value
+        object; existing code the new code revealed as problematic.
       - Do not change behaviour. Tests must remain green throughout.
 
     COMMIT:
@@ -124,11 +155,21 @@ Agent tool:
     - Did I write code before a failing test at any point?
     - Did I refactor while RED?
     - Did I touch a file outside write_scope or inside do_not_touch?
+    - Did I run small vertical cycles, or did I batch all the tests
+      first and then all the impl? (The latter is horizontal slicing
+      — undo and redo.)
 
     Tests:
-    - Do they verify behaviour through public interfaces?
+    - Do they verify behaviour through the public interface, or do
+      they reach into internals (private methods, raw DB queries,
+      asserting on call counts of internal collaborators)?
+    - Would they survive a pure refactor that changes structure but
+      not behaviour? If renaming an internal helper would break a
+      test, that test is wrong.
+    - Are mocks limited to system boundaries (external APIs, the
+      database, time/randomness, filesystem)? Any mock of code I
+      own — or of the SUT — must be removed.
     - Do they reference Scenario IDs correctly?
-    - Are they meaningful, not mock-shaped?
 
     Fix issues now. Do not pass them downstream.
 
