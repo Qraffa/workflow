@@ -22,22 +22,6 @@ back to the contract layer where it belongs.
 **Announce at start:** "I'm using slicespec-escape to revise the
 contract for slice <slice-id>."
 
-## When to Use
-
-**Invocation rule:** Explicit-only. Runs when the user types
-`/slicespec-escape`. Never auto-trigger mid-`/slicespec-implement` even
-if a Scenario turns out wrong — surface the situation to the user and
-wait for them to invoke the command. The whole point of the escape
-hatch is that the human signs off on every contract change.
-
-**Decline (and redirect) when:**
-
-- The bug is purely internal, no contract change → stay in
-  `/slicespec-implement`.
-- The user wants an unrelated feature → that's a new change,
-  `/slicespec-clarify`.
-- The fix needs no spec edit → `/slicespec-implement` is enough.
-
 ## Inputs
 
 - `changes/<change-id>/slices.md` (the slice in flight)
@@ -255,16 +239,4 @@ log. `/verify` reads it and decides.
 | Widen `write_scope` without recording it as the escape's resolution | The next diff check would lie. The widening must be auditable. |
 | Reuse a Scenario ID that was previously REMOVED or superseded | `shared/scenario-id-rules.md` reserves these forever. |
 | Mark `resolved: true` without actually editing spec.md or slices.md | The escape is open until the document agrees. |
-
-## Templates
-
-- `escapes-log-template.md` — full entry format.
-
-## Related skills
-
-- `slicespec-implement` — invokes this skill when a Red→Green→Refactor
-  cycle surfaces a contract problem.
-- `slicespec-spec` — the mini-spec-update happens inside the same
-  spec.md this skill produced.
-- `slicespec-verify` — counts escapes and enforces governance.
 

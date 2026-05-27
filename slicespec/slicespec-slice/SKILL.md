@@ -17,25 +17,12 @@ demo.
 **Announce at start:** "I'm using slicespec-slice to break the spec
 into tracer-bullet slices."
 
-## When to Use
-
-**Invocation rule:** Explicit-only. Runs when the user types
-`/slicespec-slice`. Never auto-trigger from keyword inference; if the
-context fits, suggest the command and wait for the user to invoke it.
-
-**Decline (and redirect) when:**
-
-- The spec is incomplete (still has `[blocking-spec]` open questions) —
-  `/slicespec-clarify` or `/slicespec-spec` first.
-- All slices for this change already exist and are not stale.
-
 ## Inputs
 
 - `changes/<change-id>/spec.md`
 - `changes/<change-id>/brief.md` (for change-type and Constraints
   context)
 - `changes/<change-id>/state.json`
-- `shared/directory-layout.md` for `do_not_touch` defaults
 
 ## Process
 
@@ -272,15 +259,4 @@ does not encode.
 | Two slices share `src/auth/login.py` in their write_scope. | One must drop it or both must serialise. Parallelism is off. |
 | write_scope is `**/*` (everything). | Refuse. Force the user to name directories. |
 | do_not_touch is empty. | Re-add defaults from `shared/directory-layout.md`. |
-
-## Templates
-
-- `slices-template.md` — file layout.
-- `parallel-check.md` — the 5-step conflict-detection algorithm.
-
-## Related skills
-
-- `slicespec-spec` — produces the spec this skill consumes.
-- `slicespec-implement` — consumes this skill's output.
-- `slicespec-escape` — may rewrite this skill's output mid-flight.
 

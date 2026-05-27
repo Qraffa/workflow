@@ -40,20 +40,6 @@ workflow that wraps them.
 **Announce at start:** "I'm using slicespec-implement to drive the
 TDD loop on slice <id>."
 
-## When to Use
-
-**Invocation rule:** Explicit-only. Runs when the user types
-`/slicespec-implement` (optionally with a slice id). Never
-auto-trigger from keyword inference; if the context fits, suggest
-the command and wait for the user to invoke it.
-
-**Decline (and redirect) when:**
-
-- All slices are `done` → `/slicespec-verify`.
-- A slice is `escaped(open)` → `/slicespec-escape` to close it first.
-- `spec.md` or `slices.md` does not exist → go back to the earlier
-  stage. This skill has no shortcut path.
-
 ## Inputs
 
 - `changes/<change-id>/slices.md`
@@ -355,31 +341,3 @@ There is no auto-generated placeholder, no scenario-less ID space,
 no post-hoc backfill flag. If you find yourself wanting one, the
 change is not ready for implementation.
 
-## Templates and references
-
-- **`test-rules.md` — single source of truth for test / mock /
-  anti-pattern rules. MANDATORY read before writing any test.
-  Both implementer (§8 pre-flight) and quality reviewer
-  (clause-cited grading) operate from this file. No other file
-  may restate its rules.**
-- `implementer-prompt.md` — TDD cycle mechanics (hard rules,
-  stuck-escalation, pre-report self-check, report format). Drives
-  the main-session implementer by default; also usable as a
-  subagent prompt in subagent mode.
-- `spec-reviewer-prompt.md` — fresh-subagent prompt body for
-  Step 4. Dispatched by default every slice.
-- `quality-reviewer-prompt.md` — fresh-subagent prompt body for
-  Step 5. Dispatched by default every slice. Cites `test-rules.md`
-  clauses for every test-rule finding.
-- `controller-diff-check.md` — exact algorithm for the mechanical
-  diff check.
-- `subagent-mode.md` — opt-in protocol for moving the *implementer*
-  into a subagent (e.g. parallel worktrees). Read ONLY when the
-  user triggers it (see "Subagent mode" above). Reviewer dispatch
-  is already default and does not require this file.
-
-## Related skills
-
-- `slicespec-slice` — produces the slice this skill consumes.
-- `slicespec-escape` — handles every mid-slice contract change.
-- `slicespec-verify` — runs after all slices are `done`.

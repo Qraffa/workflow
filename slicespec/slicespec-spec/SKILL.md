@@ -16,25 +16,11 @@ works*. Confusing these layers is what makes Spec/Test/Code drift.
 **Announce at start:** "I'm using slicespec-spec to define the external
 contract."
 
-## When to Use
-
-**Invocation rule:** Explicit-only. Runs when the user types
-`/slicespec-spec`. Never auto-trigger from keyword inference; if the
-context fits, suggest the command and wait for the user to invoke it.
-
-**Decline (and redirect) when:**
-
-- The change is a pure internal refactor (no external contract).
-- `brief.md` still has open `[blocking-spec]` questions —
-  `/slicespec-clarify` first.
-
 ## Inputs
 
 - `changes/<change-id>/brief.md`.
 - `specs/<capability>/spec.md` (if the capability exists — used to
   generate delta blocks).
-- `shared/scenario-id-rules.md` — ID format and lifecycle rules.
-- `shared/state-schema.md` — what fields this skill writes.
 
 ## Process
 
@@ -272,23 +258,3 @@ Notes:
 | You merged two behaviours into one Scenario with "and". | Split. One observable outcome per Scenario. |
 | You included `class UserService` or `src/auth/login.py` in the spec. | Move to slice's write_scope. Spec is external-only. |
 | You wrote `## ADDED Requirements` on a brownfield change without touching the existing spec.md. | Re-detect. Look in `specs/<capability>/spec.md` — there is an existing capability, generate delta blocks. |
-
-## Soft dependencies
-
-- `brief.md`: required input (produced by `slicespec-clarify`).
-- `CONTEXT.md`: use vocabulary; do not require.
-- `docs/adr/`: cross-reference if relevant; do not require.
-
-## Templates
-
-- `spec-template.md` — full structure for spec.md.
-- `../shared/scenario-id-rules.md` — ID format and reserved set rules.
-
-## Related skills
-
-- `slicespec-clarify` — produces the brief this skill consumes.
-- `slicespec-slice` — consumes this skill's output.
-- `slicespec-escape` — invokes a mini-spec-update during /implement.
-- `slicespec-verify` — syncs spec.md into `specs/<capability>/spec.md`
-  during archive.
-

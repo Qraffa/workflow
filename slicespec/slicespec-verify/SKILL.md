@@ -19,20 +19,6 @@ never backfilled.
 **Announce at start:** "I'm using slicespec-verify to validate the
 change before archive."
 
-## When to Use
-
-**Invocation rule:** Explicit-only. Runs when the user (or a CI
-pipeline) types `/slicespec-verify`. Never auto-trigger as a
-side-effect of `/slicespec-implement` completing, or from keyword
-inference. If the context fits, suggest the command and wait.
-
-**Decline (and redirect) when:**
-
-- A slice is still `in_progress`, `blocked`, or `escaped(open)` → fix
-  it (`/slicespec-implement` or `/slicespec-escape`) first.
-- A `resolution_pending: yes` entry exists in `escapes.log` → close
-  it via `/slicespec-escape` first.
-
 ## Inputs
 
 - `changes/<change-id>/brief.md`
@@ -42,8 +28,6 @@ inference. If the context fits, suggest the command and wait.
 - `changes/<change-id>/state.json`
 - `changes/<change-id>/evidence/<slice-id>/*.md` per slice
 - `specs/<capability>/spec.md` (where delta blocks will merge)
-- `shared/governance-thresholds.md`
-- `shared/scenario-id-rules.md`
 
 ## Modes
 
@@ -287,19 +271,4 @@ When the user asks "archive all completed changes":
 | Verify-report claims V9 pass but state.json's `controller_diff_check` shows `failed`. | Treat state.json as authoritative; fix the report logic. |
 | Verify-report skipped V2 because no test file was found. | Block. Either no tests exist (Critical) or the test root is configured wrong (ask). |
 | Strict mode passed a Warning. | Reject. Re-run in strict logic. |
-
-## Templates
-
-- `verify-checklist.md` — V1-V10 in full prose.
-- `verify-report-template.md` — markdown report shape.
-
-## Related skills
-
-- `slicespec-spec` — produces the spec.md that this skill validates and
-  merges.
-- `slicespec-slice` — produces the slices.md whose statuses this skill
-  reads.
-- `slicespec-implement` — produces the evidence this skill reads.
-- `slicespec-escape` — every entry in escapes.log is something this
-  skill governance-checks.
 

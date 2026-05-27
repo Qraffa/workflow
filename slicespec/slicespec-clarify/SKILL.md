@@ -14,18 +14,6 @@ tests. Spend the time here, not in `/verify`.
 **Announce at start:** "I'm using slicespec-clarify to scope the change
 before we touch any spec."
 
-## When to Use
-
-**Invocation rule:** Explicit-only. Runs when the user types
-`/slicespec-clarify`. Never auto-trigger from keyword inference; if the
-context fits, suggest the command and wait for the user to invoke it.
-
-**Decline (and redirect) when:**
-
-- The user has a fully-specified change and just wants to write the spec
-  → `/slicespec-spec`.
-- The task is bug triage with no behaviour change → `/slicespec-implement`.
-
 ## Inputs
 
 - User's natural-language description (free-form).
@@ -175,13 +163,6 @@ After saving brief.md, announce:
 
 Do not invoke `/spec` yourself. The user decides when they're ready.
 
-## Soft dependencies
-
-- `CONTEXT.md`: read if present, do not require.
-- `docs/adr/`: read if relevant to the change area, do not require.
-- Existing brief.md from a prior `/clarify`: respect it; append rather
-  than overwrite.
-
 ## Anti-patterns
 
 | Symptom | Fix |
@@ -191,14 +172,4 @@ Do not invoke `/spec` yourself. The user decides when they're ready.
 | Your brief.md mentions specific libraries, classes, file paths. | Move those to the future spec.md or delete them. brief.md is business-level. |
 | You contradict CONTEXT.md without surfacing the conflict. | Re-read CONTEXT.md. Make the user resolve the tension. |
 | You write Open Questions and call yourself done. | Tag each Open Question `[blocking-spec]` or `[deferred-to-impl]`. Resolve all `[blocking-spec]` before exiting. |
-
-## Templates
-
-- `brief-template.md` — the 8-section brief template.
-
-## Related skills
-
-- `slicespec-spec` — next step.
-- `slicespec-escape` — when implementation finds you missed something
-  here, /escape kicks back to a mini-clarify.
 
