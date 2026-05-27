@@ -27,6 +27,10 @@ recommendation to restart from `/clarify`.
 
 ## Review severity
 
+Code-quality findings come from `/slicespec-review` and are graded by
+`/slicespec-verify` (the review itself only reports). The severity
+behaviour at verify time:
+
 | Severity | Default mode | Strict mode | `accepted_with_risk` allowed? |
 |---|---|---|---|
 | Critical | Block | Block | No |
@@ -34,8 +38,8 @@ recommendation to restart from `/clarify`.
 | Info | Pass | Pass | N/A |
 
 `accepted_with_risk` requires a human-authored justification in
-`state.json.reviews[].warnings_accepted_with_risk[]` — never set by the
-reviewer subagent on its own.
+`state.json.quality_review.warnings_accepted_with_risk[]` — never set
+by the reviewer subagent on its own.
 
 ## Controller diff check
 
@@ -48,10 +52,10 @@ A `failed` outcome **never** moves to `done` on its own. The only recovery
 paths:
 
 1. `/escape` with tag `better-interface` or `scope-overflow` updates
-   `slices.md` write_scope, then re-dispatch.
-2. User manually reverts out-of-scope changes, then re-dispatch.
+   `slices.md` write_scope, then re-attempt the slice.
+2. User manually reverts out-of-scope changes, then re-attempts.
 
-Reviewer subagents are not asked to judge scope. Diff checks are mechanical.
+Scope is judged only by the mechanical diff check, never by a reviewer.
 
 ## Spec / Code drift counters
 

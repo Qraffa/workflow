@@ -1,13 +1,14 @@
 # Controller Diff Check (mechanical)
 
-The controller (main session) runs this check BEFORE dispatching any
-reviewer subagent. Its purpose: confirm the implementer's actual file
-changes match the slice's `write_scope` whitelist and avoid the
-`do_not_touch` blacklist.
+The main session runs this check after the slice's TDD cycles, BEFORE
+marking the slice `done` (SKILL.md step 3 → step 4). Its purpose:
+confirm the slice's actual file changes match its `write_scope`
+whitelist and avoid the `do_not_touch` blacklist.
 
-This is mechanical. The reviewer subagents are NOT asked to judge
-scope. Subagent self-reports about "I did not touch X" are not
-authoritative — `git diff` is.
+This is mechanical and the only gate `/slicespec-implement` enforces.
+Self-reports about "I did not touch X" are not authoritative — `git
+diff` is. (Spec compliance and code quality are checked later by
+`/slicespec-verify` and `/slicespec-review`, not here.)
 
 ## Inputs
 
@@ -47,19 +48,21 @@ authoritative — `git diff` is.
    - Report to user. Suggest:
        (a) Revert the out-of-scope changes.
        (b) Run /escape with tag `scope-overflow` or `better-interface`
-           to widen write_scope, then re-dispatch.
-   - Do NOT dispatch reviewers.
+           to widen write_scope, then re-attempt.
+   - Do NOT mark the slice `done`.
 
 6. If violations == 0:
    - state.json.slices[sid].evidence.controller_diff_check = "passed"
-   - Proceed to spec-compliance reviewer dispatch.
+   - Proceed to mark the slice `done` (SKILL.md step 4).
 ```
 
 ## Special cases
 
-### Worktree dispatches (parallel mode)
+### Worktree runs (external parallel orchestration)
 
-When a slice is implemented in a worktree, run the diff command against
+When a slice is implemented in a separate worktree (multiple agents
+running `/slicespec-implement` in parallel — see
+`../slicespec-slice/parallel-check.md`), run the diff command against
 the worktree path:
 
 ```
@@ -69,15 +72,13 @@ git -C <worktree-path> diff --name-status <base>..HEAD
 The base SHA is the worktree's branch point, recorded in state.json
 when the worktree was created.
 
-### Subagent that creates evidence files
+### Evidence files
 
-A subagent dispatched for slice `s03` is allowed to create files under
-`changes/<change-id>/evidence/<slice-id>/` (its own evidence
-directory). This single subdirectory is implicitly added to write_scope
-at dispatch time. Other slices' evidence directories remain forbidden.
-
-The implementer-prompt template includes the implicit allow as a hard
-rule.
+The slice's own evidence directory,
+`changes/<change-id>/evidence/<slice-id>/`, is implicitly part of
+write_scope — the implementer writes its report there. Other slices'
+evidence directories remain forbidden, and `changes/**` is otherwise on
+the default `do_not_touch` list.
 
 ### Renames
 
@@ -99,10 +100,9 @@ blocks modification.
 The diff check is not asked to interpret intent. If the implementer
 genuinely needed to touch an out-of-scope file (e.g. they discovered a
 dependency the slice didn't account for), the right answer is /escape,
-not "the reviewer agreed it was fine". The reviewer never sees the
-diff-check question.
+not a self-judgement that "it was fine".
 
-This rule exists because LLM subagents are reliably bad at counting and
+This rule exists because LLMs are reliably bad at counting and
 self-auditing. A mechanical check catches what self-review misses.
 
 ## When the algorithm cannot decide

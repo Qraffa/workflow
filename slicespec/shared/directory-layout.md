@@ -22,10 +22,9 @@ and write only the files listed here. Anything else is a bug.
     │   ├── verify-report.json   # /verify machine-readable output
     │   ├── verify-report.md     # /verify human-readable output
     │   └── evidence/
+    │       ├── quality-review.md       # /review change-level report
     │       └── <slice-id>/
-    │           ├── implementer-report.md
-    │           ├── spec-review.md
-    │           └── quality-review.md
+    │           └── implementer-report.md
     └── archive/
         └── YYYY-MM-DD-<change-id>/   # Frozen snapshot of the change directory
 ```

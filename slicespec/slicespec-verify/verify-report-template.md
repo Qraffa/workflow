@@ -16,12 +16,13 @@ archive proceeded and any unresolved Warnings.>
 - All Scenarios have `id:` HTML comments: <yes / no>
 - Delta blocks well-formed: <yes / no>
 
-## Semantic checks (V1-V10)
+## Semantic checks (V1-V11)
 
 | Id | Description | Verdict | Notes |
 |---|---|---|---|
 | V1 | Spec expresses real business intent | <pass/warning/critical> | <one-line> |
-| V2 | Active Scenarios have test references | <verdict> | <one-line> |
+| V2a | Active Scenarios have test references (mechanical) | <verdict> | <one-line> |
+| V2b | Referenced tests actually verify their Scenario (semantic) | <verdict> | <one-line> |
 | V3 | External interfaces match implementation | <verdict> | <one-line> |
 | V4 | Acceptance/Integration/Contract coverage | <verdict> | <one-line> |
 | V5 | Unit coverage of rules, edges, state | <verdict> | <one-line> |
@@ -30,6 +31,16 @@ archive proceeded and any unresolved Warnings.>
 | V8 | Spec does not leak implementation detail | <verdict> | <one-line> |
 | V9 | Slice diffs respected scope | <verdict> | <one-line> |
 | V10 | No archived Scenario IDs reused | <verdict> | <one-line> |
+| V11 | No Scenario test silently deleted | <verdict> | <one-line> |
+
+## Code quality review (from /slicespec-review)
+
+| Field | Value |
+|---|---|
+| Ran | <yes / no — if no, this is an Info note recommending /slicespec-review> |
+| Verdict | <approved / issues_found / n/a> |
+| Severity breakdown | <critical / warning / info counts> |
+| Report | <evidence/quality-review.md or n/a> |
 
 ### V<N> detail
 

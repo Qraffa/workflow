@@ -1,15 +1,20 @@
 ---
 name: slicespec-implement
-description: Stage 4 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-implement` (optionally with a slice id). Do NOT auto-trigger from keywords like "implement", "start coding", or "begin TDD" — this skill is user-gated. Executes one slice via TDD in the main session, then dispatches spec-compliance and code-quality reviewers as fresh subagents (default), and verifies write_scope mechanically with a `git diff` check. Implementer subagent dispatch and parallel worktrees are opt-in (see `subagent-mode.md`).
+description: Stage 4 of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-implement` (optionally with a slice id). Do NOT auto-trigger from keywords like "implement", "start coding", or "begin TDD" — this skill is user-gated. Executes one slice at a time via TDD in the main session, then verifies write_scope mechanically with a `git diff` check. Spec-compliance is checked later by `/slicespec-verify`; code quality by `/slicespec-review`.
 ---
 
 # SliceSpec — Implement
 
 Implement one slice at a time using strict TDD (Red → Green →
-Refactor) in the **main session**. After every slice, dispatch a
-two-stage review (spec compliance, then code quality) as **fresh
-subagents** for independence from the implementer's context, and
-verify `write_scope` mechanically with a `git diff` check.
+Refactor) in the **main session**. After each slice, verify
+`write_scope` mechanically with a `git diff` check, then mark the
+slice `done`.
+
+This stage does **not** review. Spec compliance is validated by
+`/slicespec-verify` (checks V2/V11) and code quality by
+`/slicespec-review`. Implement's only gate is the mechanical
+controller diff check — it is fast, deterministic, and runs in the
+main session.
 
 **Core principles:**
 
@@ -19,23 +24,16 @@ verify `write_scope` mechanically with a `git diff` check.
    any test.** Good/Bad test shapes, the mock boundary, the
    horizontal-slicing anti-pattern, refactor candidates, naming —
    all live there as the single source of truth. The implementer
-   applies the §8 pre-flight checklist before every test; the
-   quality reviewer grades violations against the same file.
+   applies the §8 pre-flight checklist before every test.
    Anything not in `test-rules.md` is not a test rule.
-3. **Two-stage review, independent by construction.** Spec
-   compliance first (was this what was asked?), then code quality
-   (is it well built?). Both reviewers run as fresh subagents by
-   default — the implementer's context (you, the controller) is
-   not the right place to audit the implementer's output.
-4. **Scope validated mechanically.** Self-reports about "I didn't
+3. **Scope validated mechanically.** Self-reports about "I didn't
    touch X" are not trusted. `git diff` is.
 
 The TDD essence (Pocock-style discipline: behaviour over
 implementation, vertical cycles, mock at the boundary) lives in
 `test-rules.md`. The TDD cycle mechanics live in
-`implementer-prompt.md`. Reviewer grading lives in
-`quality-reviewer-prompt.md`. This file describes the slice
-workflow that wraps them.
+`implementer-prompt.md`. This file describes the slice workflow
+that wraps them.
 
 **Announce at start:** "I'm using slicespec-implement to drive the
 TDD loop on slice <id>."
@@ -65,16 +63,9 @@ TDD loop on slice <id>."
 └─────────────────┬────────────────────┘
                   ▼
 ┌──────────────────────────────────────┐
-│ 4. Spec compliance review            │
-└─────────────────┬────────────────────┘
-                  ▼
-┌──────────────────────────────────────┐
-│ 5. Code quality review               │
-└─────────────────┬────────────────────┘
-                  ▼
-┌──────────────────────────────────────┐
-│ 6. Mark slice done                   │
-│ 7. Pick next, or /slicespec-verify   │
+│ 4. Mark slice done                   │
+│ 5. Pick next, or /slicespec-review   │
+│    then /slicespec-verify            │
 └──────────────────────────────────────┘
 ```
 
@@ -110,9 +101,9 @@ In both cases the work runs in the main session by default.
 **Before writing any test in this slice, read `test-rules.md`
 end-to-end.** It is the source of truth for test/mock/anti-pattern
 rules. Apply the §8 pre-flight checklist to every test you write.
-Findings in step 5 (quality review) that cite a `test-rules.md`
-clause indicate the pre-flight was skipped — they are avoidable
-rework.
+Any later `/slicespec-review` finding that cites a `test-rules.md`
+clause indicates the pre-flight was skipped — it is avoidable
+rework. Get it right here so the review stays clean.
 
 Every cycle executes the standard shape:
 
@@ -140,7 +131,7 @@ COMMIT   → One commit per cycle. Short present-tense message
 many Scenarios, run them as small Red→Green cycles — one per
 behaviour. The horizontal-slicing anti-pattern (all tests first,
 then all impl) is defined and forbidden in `test-rules.md` §5; it
-is a Critical defect the quality review detects from the commit
+is a Critical defect `/slicespec-review` detects from the commit
 log.
 
 Iterate until all Scenarios in `covers` are exercised. Then
@@ -191,71 +182,9 @@ If any path fails either check:
 didn't touch X" is not. See `controller-diff-check.md` for the
 exact algorithm.
 
-### Step 4 — Spec compliance review (fresh subagent)
+### Step 4 — Mark slice done
 
-Dispatch a fresh subagent using `spec-reviewer-prompt.md` as the
-prompt body. Substitute every `<...>` placeholder before
-dispatching:
-
-- `<slice-id>`, `<change-id>`, `<worktree>` absolute path
-- `<base-sha>` (recorded when slice moved to `in_progress`),
-  `<head-sha>` (current HEAD)
-- Every Scenario in the slice's `covers`, pasted verbatim from
-  `spec.md` (the subagent does NOT read the change directory)
-- The implementer's report as a HINT
-
-The subagent reads `test-rules.md` and the diff itself; it does
-not trust prior narration. It must verify:
-
-- All `covers` Scenarios are exercised by a test that references
-  the Scenario ID.
-- No missing Scenarios were skipped.
-- No extra observable behaviour was introduced beyond the spec.
-
-Outcome:
-
-- `approved` — proceed to step 5.
-- `issues_found` — list issues with file:line refs. Return to step
-  2 (TDD) to fix the specific items, then re-dispatch the reviewer
-  with the updated `<head-sha>`. **Maximum three iterations** — if
-  the third still fails, mark the slice `blocked(spec-review)` and
-  ask the user to intervene.
-
-Never silently re-dispatch the same prompt after `issues_found` —
-the head SHA must advance.
-
-### Step 5 — Code quality review (fresh subagent)
-
-Only after spec compliance is `approved`, dispatch a fresh
-subagent using `quality-reviewer-prompt.md` as the prompt body.
-Substitute the same placeholders as Step 4 (`<slice-id>`,
-`<change-id>`, `<worktree>`, `<base-sha>`, `<head-sha>`).
-
-The subagent grades violations against the same `test-rules.md`
-clauses the implementer used in §8 pre-flight, plus the
-audit-only checks that need post-hoc evidence (commit-shape
-detection of horizontal slicing and refactor-while-RED, dead-test
-detection, rationalisation signals).
-
-Outcome:
-
-- `approved` — proceed to step 6.
-- `issues_found` (Critical/Warning/Info per
-  `shared/governance-thresholds.md`) — fix Critical unconditionally;
-  Warning can be `accepted_with_risk` with a written justification
-  recorded in state.json's `reviews[]` array; Info is noted only.
-  Return to step 2, then re-dispatch with the updated `<head-sha>`.
-
-**Maximum three iterations.** If the third still fails, mark the
-slice `blocked(quality-review)` and ask the user. A finding that
-cites a `test-rules.md` clause is rework that should have been
-prevented by §8 pre-flight; treat it as a signal to slow down on
-the next test, not just a ticket to fix.
-
-### Step 6 — Mark slice done
-
-When both reviews are `approved` (or Warnings accepted with risk),
-and the controller diff check is `passed`:
+When the controller diff check is `passed`:
 
 1. Set slices.md status to `done`.
 2. Update state.json:
@@ -265,14 +194,10 @@ and the controller diff check is `passed`:
        "<slice-id>": {
          "status": "done",
          "phase": null,
-         "owner": null,
          "evidence": {
            "commits": [...],
            "tests_run": [...],
-           "spec_review": "approved",
-           "spec_review_report": "evidence/<slice-id>/spec-review.md",
-           "quality_review": "approved",
-           "quality_review_report": "evidence/<slice-id>/quality-review.md",
+           "implementer_report": "evidence/<slice-id>/implementer-report.md",
            "controller_diff_check": "passed"
          }
        }
@@ -280,40 +205,27 @@ and the controller diff check is `passed`:
      "updated_at": "<ISO-8601 UTC>"
    }
    ```
-3. Save the review reports under
-   `changes/<change-id>/evidence/<slice-id>/*.md`.
+3. Save the implementer report (per `implementer-prompt.md`'s
+   Report format) under
+   `changes/<change-id>/evidence/<slice-id>/implementer-report.md`.
 
-### Step 7 — Loop or finish
+`done` means TDD cycles ran and the diff check passed. It does
+**not** mean reviewed. Spec compliance is checked later by
+`/slicespec-verify`; code quality by `/slicespec-review`. Neither
+runs here.
+
+### Step 5 — Loop or finish
 
 If more unblocked slices remain, return to step 1. Continuous
 execution — do not pause to summarise progress unless explicitly
 asked. Only stop when:
 
-- All slices `done` → suggest `slicespec-verify`.
+- All slices `done` → suggest running `/slicespec-review` (code
+  quality), then `/slicespec-verify` (spec/test/code alignment +
+  archive).
 - A slice is `blocked` and you cannot resolve it.
 - The user interrupts.
 - An /escape was triggered and is still open.
-
-## Subagent mode (opt-in)
-
-By default, the **implementer runs in the main session** and the
-**two reviewers run as fresh subagents** (steps 4 and 5).
-"Subagent mode" refers to the *additional* opt-in that also moves
-the implementer into a subagent — typically to enable parallel
-worktrees across multiple AFK slices.
-
-It activates only when the user's invocation contains an explicit
-opt-in keyword such as `subagent`, `子agent`, `dispatch`, `并发`,
-`parallel`, or `worktree`.
-
-Example trigger: `/slicespec-implement 使用子agent并发实现任务1，2`.
-
-When (and only when) such a trigger is present, read
-[`subagent-mode.md`](subagent-mode.md) before proceeding. That file
-defines the implementer dispatch protocol, parallel-worktree
-mechanics, and the HITL→AFK downgrade rule. Do not load that file
-on a plain `/slicespec-implement` call — the default reviewer
-dispatch is already specified in steps 4 and 5 above.
 
 ## Iron rules (no exceptions without /escape)
 
@@ -324,7 +236,6 @@ dispatch is already specified in steps 4 and 5 above.
 - No silent test deletion. Deleted tests must be replaced or
   documented in evidence/.
 - No skipping the controller diff check.
-- No skipping spec compliance review.
 - One slice at a time.
 
 ## Missing inputs

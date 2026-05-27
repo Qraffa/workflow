@@ -1,11 +1,11 @@
 # Test Rules — The single source of truth
 
 **Status: MANDATORY READ before writing or modifying any test in a
-SliceSpec slice.** Both the implementer (step 2 of the TDD cycle)
-and the quality reviewer (step 5) operate from this file. It is
-the only place test / mock / anti-pattern rules are defined.
-Anywhere else that mentions them must point here, not restate
-them.
+SliceSpec slice.** Both the implementer (`/slicespec-implement`,
+step 2 of the TDD cycle) and the code-quality reviewer
+(`/slicespec-review`) operate from this file. It is the only place
+test / mock / anti-pattern rules are defined. Anywhere else that
+mentions them must point here, not restate them.
 
 Length budget: one screen per section. If you find yourself
 expanding a section to a full page, the rule is probably wrong.
@@ -246,8 +246,9 @@ refactor per §6, then commit.
 
 ## §9 What the reviewer adds on top
 
-The quality review (`quality-reviewer-prompt.md`) layers on
-checks that need post-hoc evidence the implementer cannot fully
+The code-quality review (`/slicespec-review`, whose audit detail
+lives in `../slicespec-review/reviewer-prompt.md`) layers on checks
+that need post-hoc evidence the implementer cannot fully
 self-judge:
 
 - Commit-history detection of horizontal slicing.

@@ -11,8 +11,9 @@ edit it directly.
 | `/clarify` finishes first pass | `change_id`, `status=draft`, `created_at`, `updated_at` | `slicespec-clarify` |
 | `/spec` writes spec.md | `status=specified`, `scenarios[]`, `updated_at` | `slicespec-spec` |
 | `/slice` writes slices.md | `slices{}`, `parallel_guards[]`, `status=implementing` once first slice claimed | `slicespec-slice` |
-| `/implement` dispatches subagent | `slices[sid].status=in_progress`, `slices[sid].phase`, `slices[sid].owner` | `slicespec-implement` |
-| `/implement` finishes slice | `slices[sid].status=done`, `slices[sid].evidence{}`, `reviews[]` | `slicespec-implement` |
+| `/implement` starts slice | `slices[sid].status=in_progress`, `slices[sid].phase` | `slicespec-implement` |
+| `/implement` finishes slice | `slices[sid].status=done`, `slices[sid].evidence{}` | `slicespec-implement` |
+| `/review` audits the change | `quality_review{}` (change-level; no slice status change) | `slicespec-review` |
 | `/escape` triggers | `escapes[]` appended, `slices[sid].status=escaped` | `slicespec-escape` |
 | `/verify` runs | `verify[]` appended, `status=verifying` then `archived` on success | `slicespec-verify` |
 
@@ -45,10 +46,8 @@ state-writer to project markdown into state.json, (c) bump `updated_at`.
   "slices": {
     "add-auth-login-s01": {
       "status": "pending|in_progress|done|blocked|escaped",
-      "phase": "red|green|refactor|reviewing|null",
+      "phase": "red|green|refactor|null",
       "type": "AFK|HITL",
-      "owner": "subagent:implementer-7f3a|null",
-      "originally_hitl": false,
       "scenarios": ["auth.login.001"],
       "write_scope": ["src/auth/**", "tests/auth/**"],
       "do_not_touch": ["specs/**", "src/billing/**"],
@@ -61,10 +60,6 @@ state-writer to project markdown into state.json, (c) bump `updated_at`.
           {"cmd": "pytest tests/auth -v", "result": "pass", "ts": "..."}
         ],
         "implementer_report": "evidence/add-auth-login-s01/implementer-report.md",
-        "spec_review": "approved",
-        "spec_review_report": "evidence/add-auth-login-s01/spec-review.md",
-        "quality_review": "approved",
-        "quality_review_report": "evidence/add-auth-login-s01/quality-review.md",
         "controller_diff_check": "passed"
       }
     }
@@ -80,15 +75,15 @@ state-writer to project markdown into state.json, (c) bump `updated_at`.
       "resolved_at": "2026-05-19T11:45:00Z"
     }
   ],
-  "reviews": [
-    {
-      "object": "slice:add-auth-login-s01",
-      "stage": "spec|quality",
-      "verdict": "approved|issues_found|accepted_with_risk",
-      "severity_breakdown": {"critical": 0, "warning": 1, "info": 2},
-      "warnings_accepted_with_risk": ["magic-number-100 in auth/login.py:42"]
-    }
-  ],
+  "quality_review": {
+    "ran": true,
+    "verdict": "approved|issues_found",
+    "severity_breakdown": {"critical": 0, "warning": 1, "info": 2},
+    "report": "evidence/quality-review.md",
+    "reviewed_slices": ["add-auth-login-s01", "add-auth-login-s02"],
+    "warnings_accepted_with_risk": ["magic-number-100 in auth/login.py:42"],
+    "ts": "2026-05-20T08:00:00Z"
+  },
   "verify": [
     {
       "ts": "2026-05-20T09:00:00Z",
@@ -115,26 +110,15 @@ draft → specified → implementing → verifying → archived
 
 ### `slices[sid].phase`
 
-Only meaningful when `status == in_progress`. Five values:
+Only meaningful when `status == in_progress`. Four values:
 
 - `red` — failing test in place
 - `green` — minimal code passes the test
 - `refactor` — green, structural cleanup in progress
-- `reviewing` — handed to spec/quality reviewer subagent
 - `null` (otherwise)
 
 The human-readable `slices.md` shows only the five status buckets; phase lives
-in state.json for controller scheduling.
-
-### `slices[sid].owner`
-
-Subagent identifier when claimed for execution. Format:
-`subagent:<role>-<short-id>`. Null when not dispatched.
-
-### `slices[sid].originally_hitl`
-
-`true` only when the slice was declared HITL in slices.md and later downgraded
-to AFK during `/implement`. Audit trail; never reset to `false`.
+in state.json for the main session's own bookkeeping during a slice.
 
 ### `slices[sid].evidence.controller_diff_check`
 
@@ -142,6 +126,23 @@ Required for every `done` slice. Values:
 
 - `passed`
 - `failed:<comma-separated-files>` — slice blocked; see `slicespec-implement/controller-diff-check.md` for the algorithm and `slicespec-escape/SKILL.md` for the resolution path.
+
+### `quality_review` (top-level, change-level)
+
+Written by `/slicespec-review`. Records a single code-quality audit of
+the whole change's `done` slices. It does **not** change any slice's
+status — review is advisory.
+
+- `ran` — `true` once a review has been performed; absent/`false` means
+  `/slicespec-verify` will emit an Info note recommending one.
+- `verdict` — `approved` (no Critical/Warning) or `issues_found`.
+- `severity_breakdown` — counts `{critical, warning, info}`.
+- `report` — path to `evidence/quality-review.md`.
+- `reviewed_slices` — the `done` slice ids covered by this run.
+- `warnings_accepted_with_risk` — human-authored justifications for
+  Warnings the user chose to keep; consumed by `/slicespec-verify`
+  (counted only in strict mode). Never set by the reviewer subagent.
+- `ts` — when the review ran.
 
 ### `parallel_guards`
 

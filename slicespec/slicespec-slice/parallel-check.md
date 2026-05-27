@@ -1,9 +1,15 @@
 # Parallel Conflict Check
 
-Determines whether two slices can be implemented in parallel. The
-controller in `slicespec-implement` runs this same check before
-dispatching any parallel subagents. `/slice` uses it to suggest
-parallel-friendly slicing.
+Determines whether two slices can be implemented in parallel. This is
+pure static analysis over the slices' declared scopes — it does not
+depend on how the slices are executed.
+
+`/slice` uses it to suggest parallel-friendly slicing. External
+orchestration (multiple agents or worktrees each running
+`/slicespec-implement` on a different slice) uses it to confirm two
+slices are safe to run at the same time. `/slicespec-implement` itself
+always runs one slice at a time in the main session; it does not
+dispatch parallel subagents.
 
 ## Inputs
 
@@ -89,38 +95,52 @@ write_scopes are disjoint.
 
 ### Pass
 
-All 5 steps clear → the pair is parallel-safe. The controller may
-dispatch them concurrently in separate worktrees (`git worktree`).
+All 5 steps clear → the pair is parallel-safe. They may be run
+concurrently by external orchestration in separate worktrees (`git
+worktree`) — see "Parallel execution (external orchestration)" below.
 
 ## Output
 
 The check produces one of three verdicts:
 
-- **PARALLEL_OK** — dispatch in separate worktrees.
-- **SERIAL_REQUIRED** — dispatch sequentially.
+- **PARALLEL_OK** — safe to run concurrently in separate worktrees.
+- **SERIAL_REQUIRED** — run sequentially.
 - **ALREADY_SERIAL** — dep graph already serialises; no decision needed.
 
-`/slice` records the verdicts implicitly by structuring slices.md so
-the controller can decide at dispatch time. There is no `parallel`
+`/slice` records the verdicts implicitly by structuring slices.md so an
+orchestrator can decide what to run in parallel. There is no `parallel`
 metadata in state.json — the check is re-run on demand.
 
-## Worktree mechanics (for /implement)
+## Parallel execution (external orchestration)
 
-For each parallel-safe pair, the controller:
+`/slicespec-implement` runs one slice at a time in the main session and
+does **not** spawn parallel workers itself. Running several
+parallel-safe slices at once is an *external* concern: a human, a
+higher-level orchestrator, or several agents each drive their own
+`/slicespec-implement` on a different slice. This check is what makes
+that safe.
 
-1. Creates a worktree per slice: `git worktree add ../<slice-id>
+A typical worktree-based setup, for each `PARALLEL_OK` slice:
+
+1. Create a worktree per slice: `git worktree add ../<slice-id>
    <branch>`.
-2. Dispatches the subagent with the worktree path in the prompt.
-3. After both report `DONE`, runs the spec-/quality-reviewer pair on
-   each in their own worktrees.
-4. Cherry-picks each worktree's commits back into the main worktree
-   serially.
-5. Resolves any cherry-pick conflicts manually (controller does this
-   itself — never a subagent).
-6. Removes the worktrees after merge.
+2. In each worktree, run `/slicespec-implement <slice-id>`
+   independently. Each runs its own TDD loop and controller diff check
+   (the diff check supports a worktree path — see
+   `../slicespec-implement/controller-diff-check.md`).
+3. After each slice is `done`, cherry-pick its commits back into the
+   main worktree serially.
+4. Resolve any cherry-pick conflicts manually. If a conflict cannot be
+   resolved without changing semantics, trigger `/escape` with tag
+   `scope-overflow`.
+5. Remove the worktrees after merge.
+6. Run `/slicespec-review` and `/slicespec-verify` once over the merged
+   change, as usual — they operate on the whole change, not per
+   worktree.
 
-If a cherry-pick conflict cannot be resolved without changing semantics,
-the controller triggers `/escape` with tag `scope-overflow`.
+The orchestration layer owns this loop; the SliceSpec skills do not
+encode it beyond providing this conflict check and the worktree-aware
+diff check.
 
 ## Default to serial
 

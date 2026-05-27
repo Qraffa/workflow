@@ -46,7 +46,7 @@ in the description.
 
 ```
 ┌───────────────────────────────────┐
-│ 1. Pause in-flight subagent       │
+│ 1. Pause the in-flight slice      │
 └────────────────┬──────────────────┘
                  ▼
 ┌───────────────────────────────────┐
@@ -73,10 +73,10 @@ in the description.
 
 ### Step 1 — Pause
 
-Tell the in-flight implementer subagent (Mode A) to exit `BLOCKED`,
-preserving any in-progress test files and commits. For HITL slices
-(Mode B), simply stop the current TDD cycle in place. Do NOT discard
-the partial work — it informs the mini-spec-update.
+Stop the current TDD cycle in place, preserving any in-progress test
+files and commits. (`/slicespec-implement` runs in the main session, so
+this is just halting your own loop.) Do NOT discard the partial work —
+it informs the mini-spec-update.
 
 ### Step 2 — Append to escapes.log
 
@@ -138,7 +138,7 @@ In slices.md, change the slice's status to `escaped`. In state.json:
 
 The slice will remain `escaped` until the mini-spec-update is committed
 and the user is ready to resume. Then it goes back to `pending` (or to
-`in_progress` if the user re-dispatches immediately).
+`in_progress` if the user resumes implementing it immediately).
 
 ### Step 4 — Mini-spec-update
 
@@ -190,8 +190,8 @@ If the mini-spec-update added/removed Scenarios, update the affected
 slices' `covers` lists and `test_strategy` rows.
 
 If the mini-spec-update widened `write_scope`, edit the slice's
-`write_scope` in slices.md. The controller will re-check on next
-dispatch.
+`write_scope` in slices.md. The controller diff check will re-check it
+when the slice is re-attempted.
 
 If the escape created new slices (split or follow-up), allocate fresh
 slice IDs (next sequence) and add them to slices.md with `status:

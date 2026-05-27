@@ -1,12 +1,14 @@
-# Verify Checklist (V1-V10)
+# Verify Checklist (V1-V11)
 
 These are the semantic checks slicespec-verify runs. Each is documented
 here with: what it checks, how to check it, when it warrants `pass`,
 `warning`, or `critical`.
 
-V1-V8 are the SDD/TDD semantic alignment checks. V9 and V10 are
+V1-V8 are the SDD/TDD semantic alignment checks. V9, V10, and V11 are
 SliceSpec-specific: V9 enforces the per-slice write_scope mechanically,
-V10 protects archived Scenario IDs from reuse.
+V10 protects archived Scenario IDs from reuse, V11 catches tests that
+were silently deleted. V2b and V11 together absorb the spec-compliance
+check that used to run per-slice during `/slicespec-implement`.
 
 ## V1 — Spec still expresses real business intent
 
@@ -29,7 +31,15 @@ language.
 - `warning` — fuzzy phrase detected; reviewer should confirm intent.
 - `critical` — Why and brief Goal disagree.
 
-## V2 — Active Scenarios have test references
+## V2 — Active Scenarios have a test that verifies them
+
+This check has two layers. **V2a** is the mechanical reference check
+(formerly the whole of V2). **V2b** is the semantic check that the
+referenced test actually verifies the Scenario it names. V2b absorbs
+what the per-slice spec-compliance reviewer used to do at implement
+time — it now lives here, run once over the whole change.
+
+### V2a — Reference exists (mechanical)
 
 **What it checks:** Every `active` Scenario in state.json's
 `scenarios[]` is referenced by at least one test using one of the
@@ -51,6 +61,31 @@ Use the test root configured in the project (`tests/`, `test/`,
 
 - `pass` — every active Scenario has at least one matching reference.
 - `critical` — any active Scenario has zero references.
+
+### V2b — Reference actually verifies the Scenario (semantic)
+
+**What it checks:** For each test that references a Scenario id, the
+test body actually exercises that Scenario — its GIVEN/WHEN/THEN, not
+a different behaviour that merely carries the id.
+
+**How to check:** This is an LLM judgement, run in the main session.
+For each referenced test, read the test body and answer:
+
+- Does the GIVEN setup match the Scenario's preconditions?
+- Does the WHEN action match the Scenario's trigger?
+- Does the THEN assertion match the Scenario's observable outcome?
+
+For changes with many active Scenarios this is a substantial read; do
+it directly in the main session (you may dispatch a fresh subagent for
+very large changes, as V3 already permits, but it is not required).
+
+**Verdicts:**
+
+- `pass` — every referenced test verifies its Scenario.
+- `warning` — a test plausibly covers its Scenario but the match is
+  ambiguous (e.g. partial THEN assertion).
+- `critical` — a test references a Scenario id but verifies something
+  different (the reference is a label, not a real check).
 
 ## V3 — External interfaces match implementation
 
@@ -227,6 +262,41 @@ union(
 - `pass` — intersection is empty.
 - `critical` — non-empty intersection. Renaming required.
 
+## V11 — No Scenario test silently deleted
+
+**What it checks:** No test that previously referenced an `active`
+Scenario id was removed over the change's history without a
+replacement. This catches the case where a slice deletes a failing or
+inconvenient test instead of fixing the code — the iron rule "no
+silent test deletion" enforced after the fact, across the whole
+change. (Absorbs the spec-compliance reviewer's "no deleted scenarios
+silently" check, formerly run per-slice.)
+
+**How to check:**
+
+```
+range = <change base SHA>..HEAD
+git log -p <range> -- <test root>
+for each removed test that referenced a Scenario id S (one of the
+three permitted forms):
+  is there, at HEAD, still at least one test referencing S?
+    yes → ok (replaced)
+    no  → the Scenario lost its test
+```
+
+A removal that is documented in `evidence/` (e.g. the test was
+replaced by a better one referencing the same id) is fine — the HEAD
+state having a reference is what matters. An undocumented removal that
+leaves an `active` Scenario with no test at HEAD overlaps V2a and is
+reported under both.
+
+**Verdicts:**
+
+- `pass` — every Scenario that ever had a test still has one at HEAD,
+  or removals are accounted for.
+- `critical` — a test referencing an active Scenario was removed and
+  not replaced.
+
 ## Combining verdicts
 
 The final exit code is determined as follows:
@@ -242,6 +312,7 @@ elif strict and warning_count > 0:  exit 2
 else:                 exit 0
 ```
 
-`accepted_with_risk` Warnings (recorded in state.json from `/implement`)
-do NOT count toward `warning_count` in default mode; they DO count in
-strict mode.
+`accepted_with_risk` Warnings (recorded in state.json — typically a
+`/slicespec-review` Warning the user chose to keep, with a written
+justification) do NOT count toward `warning_count` in default mode;
+they DO count in strict mode.

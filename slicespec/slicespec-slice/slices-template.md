@@ -25,8 +25,9 @@ edges is initially unblocked.)
 
 ## Parallel guards (project-wide)
 
-These paths cannot be touched by parallel slices. The controller in
-slicespec-implement consults this list before dispatching.
+These paths cannot be touched by parallel slices. External parallel
+orchestration consults this list (via `parallel-check.md`) before
+running two slices concurrently.
 
 - `**/migrations/**`
 - `**/config/**`

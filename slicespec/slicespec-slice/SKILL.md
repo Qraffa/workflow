@@ -203,8 +203,10 @@ Announce:
 Every slice in slices.md must include:
 
 - `id` — `<change-id>-s<NN>` per `shared/directory-layout.md`.
-- `type` — `AFK` (can be dispatched to a subagent) or `HITL` (must run
-  in the main session because it involves a user-judgement step).
+- `type` — `AFK` (mechanical, no judgement points — runs end-to-end
+  without pausing, and is eligible for external parallel orchestration)
+  or `HITL` (has a user-judgement step where `/slicespec-implement`
+  must pause and ask).
 - `covers` — list of Scenario IDs.
 - `blocked_by` — list of slice IDs (or `[]`).
 - `write_scope` — list of globs.

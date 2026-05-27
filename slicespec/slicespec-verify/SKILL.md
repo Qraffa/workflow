@@ -1,6 +1,6 @@
 ---
 name: slicespec-verify
-description: Final stage of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-verify`. Do NOT auto-trigger from keywords like "verify", "archive", or "wrap up" — this skill is user-gated. Validates Spec/Test/Code semantic alignment via the V1-V10 checklist, runs governance thresholds, executes the test suite, syncs delta specs into specs/<capability>/spec.md, and archives the change.
+description: Final stage of SliceSpec. ONLY invoke when the user explicitly types `/slicespec-verify`. Do NOT auto-trigger from keywords like "verify", "archive", or "wrap up" — this skill is user-gated. Validates Spec/Test/Code semantic alignment via the V1-V11 checklist (including spec-compliance, which now lives here as V2b/V11), runs governance thresholds, executes the test suite, syncs delta specs into specs/<capability>/spec.md, and archives the change.
 ---
 
 # SliceSpec — Verify
@@ -37,9 +37,9 @@ before running.
 
 | Intent phrase | Mode | Behaviour |
 |---|---|---|
-| "PR pre-check", "verify before merge", "sanity check" | `pre-pr` | Run V1-V10 + test suite. Do NOT sync, do NOT archive. |
-| "verify and archive", "wrap up this change", no mode said | `default` | Run V1-V10 + tests. Block on Critical only. Sync and archive on success. |
-| "strict verify", "audit mode", "strict mode" | `strict` | Run V1-V10 + tests. Block on Critical AND Warning (no `accepted_with_risk` allowed). Sync and archive only on full pass. |
+| "PR pre-check", "verify before merge", "sanity check" | `pre-pr` | Run V1-V11 + test suite. Do NOT sync, do NOT archive. |
+| "verify and archive", "wrap up this change", no mode said | `default` | Run V1-V11 + tests. Block on Critical only. Sync and archive on success. |
+| "strict verify", "audit mode", "strict mode" | `strict` | Run V1-V11 + tests. Block on Critical AND Warning (no `accepted_with_risk` allowed). Sync and archive only on full pass. |
 | "archive all completed changes" | `bulk` | Loop through every `verifying`-status change in `changes/`, run default mode per change, archive each that passes. |
 
 ## Process
@@ -54,7 +54,7 @@ before running.
 └────────────────┬─────────────────────┘
                  ▼
 ┌──────────────────────────────────────┐
-│ 3. Semantic V1-V10                   │
+│ 3. Semantic V1-V11                   │
 └────────────────┬─────────────────────┘
                  ▼
 ┌──────────────────────────────────────┐
@@ -114,7 +114,7 @@ Parse spec.md. Reject (exit code 3) if any of:
 
 Structural errors block; they are not "Warnings".
 
-### Step 3 — Semantic V1-V10
+### Step 3 — Semantic V1-V11
 
 Run each check. Results are recorded in verify-report.md per check id.
 Use `verify-checklist.md` for the full text.
@@ -122,7 +122,8 @@ Use `verify-checklist.md` for the full text.
 | Id | What it checks |
 |---|---|
 | V1 | spec.md still expresses real business intent (LLM scan for vague language and stale references). |
-| V2 | Each active Scenario has a test referencing its ID in one of the three permitted forms. |
+| V2a | Each active Scenario has a test referencing its ID in one of the three permitted forms (mechanical grep). |
+| V2b | Each referenced test actually verifies its Scenario's GIVEN/WHEN/THEN (semantic, LLM judgement in the main session). Absorbs the old per-slice spec-compliance review. |
 | V3 | External interfaces, error semantics, data models, permissions, security, perf commitments match the implementation. |
 | V4 | Acceptance / Integration / Contract tests cover the primary acceptance paths. |
 | V5 | Unit tests cover key rules, edge cases, complex state. |
@@ -131,10 +132,16 @@ Use `verify-checklist.md` for the full text.
 | V8 | spec.md does not leak internal implementation detail. |
 | V9 | Every slice's actual diff respected its `write_scope` and `do_not_touch` (read `state.json.slices[*].evidence.controller_diff_check`; all must be `passed` OR followed by a documented `/escape` widening). |
 | V10 | No `## ADDED` Scenario ID intersects the reserved set (archived IDs + REMOVED + superseded). |
+| V11 | No test referencing an active Scenario was silently deleted over the change's history without a replacement at HEAD. Absorbs the old per-slice "no deleted scenarios" review. |
 
 Each check returns one of: `pass`, `warning`, `critical`. Warnings can
 be `accepted_with_risk` in default mode if state.json carries a
 written justification.
+
+If `state.json.quality_review.ran` is absent or `false`, also emit an
+**Info** note: code quality was not reviewed; recommend running
+`/slicespec-review` before archive. This is Info only — it never
+blocks.
 
 ### Step 4 — Escape governance
 
@@ -174,7 +181,7 @@ Write two files:
 Each report contains:
 
 - Mode chosen.
-- Result of V1-V10 (`pass` / `warning` / `critical`).
+- Result of V1-V11 (`pass` / `warning` / `critical`).
 - Escape governance result.
 - Test suite results.
 - Final verdict and exit code.
@@ -246,9 +253,10 @@ gh pr create \
 | Info | Pass + note | Pass + note | Pass + note |
 
 `accepted_with_risk` requires a justification recorded in
-`state.json.reviews[].warnings_accepted_with_risk[]` — never produced
-by `slicespec-verify`. If the user wants to override a warning, they
-must have done so during `/implement`.
+`state.json.quality_review.warnings_accepted_with_risk[]` — never
+produced by `slicespec-verify`. If the user wants to override a
+`/slicespec-review` Warning, they must have recorded the justification
+there before verify runs.
 
 ## Bulk mode
 
@@ -269,6 +277,6 @@ When the user asks "archive all completed changes":
 | Verify-report says "all pass" but `escapes.log` has open entries. | V6 should be Critical; check the parser. |
 | Sync silently merged contradictory delta blocks. | Abort sync. Surface conflict. |
 | Verify-report claims V9 pass but state.json's `controller_diff_check` shows `failed`. | Treat state.json as authoritative; fix the report logic. |
-| Verify-report skipped V2 because no test file was found. | Block. Either no tests exist (Critical) or the test root is configured wrong (ask). |
+| Verify-report skipped V2a because no test file was found. | Block. Either no tests exist (Critical) or the test root is configured wrong (ask). |
 | Strict mode passed a Warning. | Reject. Re-run in strict logic. |
 
